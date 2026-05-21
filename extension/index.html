@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" id="htmlRoot">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,21 +12,54 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="page-wrapper">
+
+<!-- ================================================================
+     SHORTCUTS SIDEBAR — custom bookmarks on the left
+     ================================================================ -->
+<nav class="shortcuts-sidebar" id="shortcutsSidebar">
+  <div class="shortcuts-list" id="shortcutsList"></div>
+  <button class="shortcut-add-btn" id="shortcutAddBtn" title="">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+  </button>
+  <div class="shortcut-io-group">
+    <button class="shortcut-io-btn" id="shortcutExportBtn" title="">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" /></svg>
+    </button>
+    <button class="shortcut-io-btn" id="shortcutImportBtn" title="">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+    </button>
+    <input type="file" id="shortcutImportFile" accept=".json,.config,application/json" style="display:none">
+  </div>
+</nav>
+
+<!-- Custom context menu for shortcuts -->
+<div class="shortcut-ctx-menu" id="shortcutCtxMenu" style="display:none">
+  <button class="ctx-menu-item" data-ctx-action="edit" id="ctxEdit"></button>
+  <button class="ctx-menu-item ctx-menu-danger" data-ctx-action="delete" id="ctxDelete"></button>
+</div>
+
+<!-- Add/Edit shortcut dialog -->
+<div class="shortcut-dialog-overlay" id="shortcutDialogOverlay" style="display:none">
+  <div class="shortcut-dialog">
+    <div class="shortcut-dialog-field">
+      <label id="dialogNameLabel"></label>
+      <input type="text" id="dialogName" autocomplete="off">
+    </div>
+    <div class="shortcut-dialog-field">
+      <label id="dialogUrlLabel"></label>
+      <input type="url" id="dialogUrl" placeholder="https://" autocomplete="off">
+    </div>
+    <div class="shortcut-dialog-actions">
+      <button class="shortcut-dialog-btn cancel" id="dialogCancel"></button>
+      <button class="shortcut-dialog-btn save" id="dialogSave"></button>
+    </div>
+  </div>
+</div>
+
 <div class="container">
 
 
-
-  <!-- ================================================================
-       HEADER — greeting on the left
-       ================================================================ -->
-  <header>
-    <div class="header-left">
-      <!-- "Good afternoon" — written by getGreeting() in app.js -->
-      <h1 id="greeting"></h1>
-      <!-- "Friday, April 4, 2026" — written by getDateDisplay() in app.js -->
-      <div class="date" id="dateDisplay"></div>
-    </div>
-  </header>
 
   <!-- ================================================================
        TAB OUT DUPES BANNER — appears when you have extra Tab Out tabs open
@@ -39,11 +72,9 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
         </svg>
       </div>
-      <div class="tab-cleanup-text">
-        You have <strong id="tabOutDupeCount"></strong> Tab Out tabs open. Keep just this one?
-      </div>
+      <div class="tab-cleanup-text" id="tabOutDupeText"></div>
     </div>
-    <button class="tab-cleanup-btn" data-action="close-tabout-dupes">Close extras</button>
+    <button class="tab-cleanup-btn" data-action="close-tabout-dupes" id="closeExtrasBtn"></button>
   </div>
 
   <!-- ================================================================
@@ -57,7 +88,7 @@
     <!-- LEFT COLUMN: Open tabs -->
     <div class="active-section" id="openTabsSection" style="display:none">
       <div class="section-header">
-        <h2 id="openTabsSectionTitle">Right now</h2>
+        <h2 id="openTabsSectionTitle"></h2>
         <div class="section-line"></div>
         <div class="section-count" id="openTabsSectionCount"></div>
       </div>
@@ -67,7 +98,7 @@
     <!-- RIGHT COLUMN: Saved for Later checklist -->
     <div class="deferred-column" id="deferredColumn" style="display:none">
       <div class="section-header">
-        <h2>Saved for later</h2>
+        <h2 id="deferredTitle"></h2>
         <div class="section-line"></div>
         <div class="section-count" id="deferredCount"></div>
       </div>
@@ -77,20 +108,33 @@
 
       <!-- Empty state — shown when no active deferred tabs -->
       <div class="deferred-empty" id="deferredEmpty" style="display:none">
-        Nothing saved. Living in the moment.
+        <span id="deferredEmptyText"></span>
       </div>
 
       <!-- Archive section — collapsed by default -->
       <div class="deferred-archive" id="deferredArchive" style="display:none">
         <button class="archive-toggle" id="archiveToggle">
           <svg class="archive-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" /></svg>
-          Archive
+          <span id="archiveLabel"></span>
           <span class="archive-count" id="archiveCount"></span>
         </button>
         <div class="archive-body" id="archiveBody" style="display:none">
-          <input type="text" class="archive-search" id="archiveSearch" placeholder="Search archived tabs...">
+          <input type="text" class="archive-search" id="archiveSearch" placeholder="">
           <div class="archive-list" id="archiveList"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Tab Groups (OneTab) -->
+    <div class="tab-groups-column" id="tabGroupsColumn" style="display:none">
+      <div class="section-header">
+        <h2 id="tabGroupsTitle"></h2>
+        <div class="section-line"></div>
+        <div class="section-count" id="tabGroupsCount"></div>
+      </div>
+      <div class="tab-groups-list" id="tabGroupsList"></div>
+      <div class="tab-groups-empty" id="tabGroupsEmpty" style="display:none">
+        <span id="tabGroupsEmptyText"></span>
       </div>
     </div>
 
@@ -100,18 +144,13 @@
        FOOTER — global stats + refresh control
        ================================================================ -->
   <footer>
-    <div class="footer-stats">
-      <div class="stat">
-        <div class="stat-num" id="statTabs">—</div>
-        <div class="stat-label">Open tabs</div>
-      </div>
-    </div>
     <div class="last-refresh">
-      <span style="color: var(--muted); font-size: 11px;"><a href="https://github.com/zarazhangrui/tab-out" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">Tab Out</a> by <a href="https://x.com/zarazhangrui" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">Zara</a></span>
+      <span style="color: var(--muted); font-size: 11px;">Tab Out by TinggengYan based on <a href="https://x.com/zarazhangrui" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">Zara</a></span>
     </div>
   </footer>
 
 </div><!-- end .container -->
+</div><!-- end .page-wrapper -->
 
 <!-- ================================================================
      TOAST — floats above everything, used for action confirmations
@@ -128,6 +167,9 @@
 <!-- Personal config (gitignored) — defines LOCAL_LANDING_PAGE_PATTERNS etc. -->
 <!-- If the file doesn't exist, that's fine — app.js uses sensible defaults. -->
 <script src="config.local.js" onerror="/* no personal config, that's fine */"></script>
+
+<!-- i18n — auto-detects browser language (en / zh-CN) -->
+<script src="i18n.js"></script>
 
 <!-- Main dashboard logic — loads last so the DOM is ready -->
 <script src="app.js"></script>

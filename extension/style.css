@@ -45,7 +45,7 @@ body::before {
   z-index: 1;
   max-width: 960px;
   margin: 0 auto;
-  padding: 48px 32px 80px;
+  padding: 24px 32px 80px;
 }
 
 /* When the saved-for-later sidebar is open, expand the container
@@ -1155,4 +1155,522 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   color: var(--muted);
   opacity: 0.6;
   flex-shrink: 0;
+}
+
+
+/* ================================================================
+   SHORTCUTS SIDEBAR
+   ================================================================ */
+
+.page-wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+.page-wrapper > .container {
+  flex: 1;
+  min-width: 0;
+}
+
+.shortcuts-sidebar {
+  width: 72px;
+  flex-shrink: 0;
+  background: var(--card-bg);
+  border-right: 1px solid var(--warm-gray);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 0;
+  gap: 4px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.shortcuts-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.shortcut-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  width: 64px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.shortcut-item:hover {
+  background: rgba(200, 113, 58, 0.06);
+}
+
+.shortcut-favicon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--warm-gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.shortcut-favicon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shortcut-favicon-letter {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.shortcut-name {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcut-add-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1.5px dashed var(--warm-gray);
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  margin-top: 4px;
+}
+
+.shortcut-add-btn:hover {
+  border-color: var(--accent-amber);
+  color: var(--accent-amber);
+  background: rgba(200, 113, 58, 0.04);
+}
+
+.shortcut-add-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.shortcut-io-group {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.shortcut-io-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  opacity: 0.6;
+}
+
+.shortcut-io-btn:hover {
+  opacity: 1;
+  color: var(--accent-amber);
+  background: rgba(200, 113, 58, 0.06);
+}
+
+.shortcut-io-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---- Context menu ---- */
+.shortcut-ctx-menu {
+  position: fixed;
+  background: var(--card-bg);
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px var(--shadow), 0 2px 8px rgba(0,0,0,0.06);
+  padding: 4px;
+  z-index: 1000;
+  min-width: 120px;
+}
+
+.ctx-menu-item {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--ink);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 100%;
+  text-align: left;
+  display: block;
+  transition: background 0.1s;
+}
+
+.ctx-menu-item:hover {
+  background: rgba(200, 113, 58, 0.06);
+}
+
+.ctx-menu-danger {
+  color: var(--status-abandoned);
+}
+
+.ctx-menu-danger:hover {
+  background: rgba(179, 90, 90, 0.08);
+}
+
+/* ---- Dialog overlay ---- */
+.shortcut-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 22, 19, 0.3);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.shortcut-dialog {
+  background: var(--card-bg);
+  border: 1px solid var(--warm-gray);
+  border-radius: 12px;
+  padding: 24px;
+  width: 320px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+  animation: dialogPop 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes dialogPop {
+  from { transform: scale(0.95); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+.shortcut-dialog-field {
+  margin-bottom: 16px;
+}
+
+.shortcut-dialog-field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.shortcut-dialog-field input {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--warm-gray);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.shortcut-dialog-field input:focus {
+  border-color: var(--accent-amber);
+}
+
+.shortcut-dialog-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.shortcut-dialog-btn {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.shortcut-dialog-btn.cancel {
+  background: none;
+  color: var(--muted);
+  border: 1px solid var(--warm-gray);
+}
+
+.shortcut-dialog-btn.cancel:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.shortcut-dialog-btn.save {
+  background: var(--accent-amber);
+  color: white;
+}
+
+.shortcut-dialog-btn.save:hover {
+  opacity: 0.85;
+}
+
+@media (max-width: 800px) {
+  .shortcuts-sidebar { display: none; }
+}
+
+
+/* ================================================================
+   TAB GROUPS (OneTab)
+   ================================================================ */
+
+.tab-groups-column {
+  width: 320px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 32px;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+.tab-groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tab-groups-empty {
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* ---- Collect button ---- */
+.collect-btn {
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  padding: 5px 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(90, 122, 98, 0.3);
+  background: rgba(90, 122, 98, 0.04);
+  color: var(--accent-sage);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.collect-btn:hover {
+  background: rgba(90, 122, 98, 0.1);
+  border-color: var(--accent-sage);
+}
+
+.collect-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ---- Group card ---- */
+.tab-group-card {
+  background: var(--card-bg);
+  border: 1px solid var(--warm-gray);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tab-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tab-group-header:hover {
+  background: rgba(200, 113, 58, 0.03);
+}
+
+.tab-group-chevron {
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.tab-group-card.expanded .tab-group-chevron {
+  transform: rotate(90deg);
+}
+
+.tab-group-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tab-group-date {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.tab-group-count {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tab-group-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tab-group-action {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--warm-gray);
+  background: var(--card-bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab-group-action:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.tab-group-action.restore {
+  border-color: rgba(90, 122, 98, 0.3);
+  color: var(--accent-sage);
+}
+
+.tab-group-action.restore:hover {
+  background: rgba(90, 122, 98, 0.08);
+  border-color: var(--accent-sage);
+}
+
+.tab-group-action.delete:hover {
+  border-color: var(--status-abandoned);
+  color: var(--status-abandoned);
+}
+
+/* ---- Group tab list (collapsed by default) ---- */
+.tab-group-tabs {
+  display: none;
+  border-top: 1px solid var(--warm-gray);
+}
+
+.tab-group-card.expanded .tab-group-tabs {
+  display: block;
+}
+
+.tab-group-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(154, 145, 138, 0.08);
+  font-size: 12px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.1s;
+  text-decoration: none;
+}
+
+.tab-group-tab:last-child {
+  border-bottom: none;
+}
+
+.tab-group-tab:hover {
+  background: rgba(200, 113, 58, 0.04);
+}
+
+.tab-group-tab-favicon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 2px;
+}
+
+.tab-group-tab-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-group-tab-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.tab-group-tab:hover .tab-group-tab-remove {
+  opacity: 0.5;
+}
+
+.tab-group-tab-remove:hover {
+  opacity: 1 !important;
+  color: var(--status-abandoned);
+}
+
+.tab-group-tab-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+@media (max-width: 800px) {
+  .tab-groups-column {
+    width: 100%;
+    position: static;
+  }
 }
