@@ -5,10 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tab Out</title>
 
-  <!-- Google Fonts: Newsreader (for headings/numbers) + DM Sans (for body text) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,500;1,6..72,300;1,6..72,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -147,10 +143,183 @@
     <div class="last-refresh">
       <span style="color: var(--muted); font-size: 11px;">Tab Out by TinggengYan based on <a href="https://x.com/zarazhangrui" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">Zara</a></span>
     </div>
+    <div class="footer-tools">
+      <button class="footer-tool-btn" id="searchOpenBtn" data-action="open-command"></button>
+      <button class="footer-tool-btn" id="cleanupOpenBtn" data-action="open-cleanup"></button>
+      <button class="footer-tool-btn" id="workspacesOpenBtn" data-action="open-workspaces"></button>
+      <button class="footer-tool-btn" id="historyOpenBtn" data-action="open-history"></button>
+      <button class="footer-tool-btn" id="trashOpenBtn" data-action="open-trash"></button>
+      <button class="footer-tool-btn" id="settingsOpenBtn" data-action="open-settings"></button>
+      <button class="footer-tool-btn upgrade-btn" id="upgradeOpenBtn" data-action="open-upgrade"></button>
+    </div>
   </footer>
 
 </div><!-- end .container -->
 </div><!-- end .page-wrapper -->
+
+<div class="modal-overlay" id="trashOverlay" style="display:none">
+  <section class="trash-dialog" role="dialog" aria-modal="true" aria-labelledby="trashTitle">
+    <div class="trash-dialog-header">
+      <div>
+        <h2 id="trashTitle"></h2>
+        <p id="trashSubtitle"></p>
+      </div>
+      <button class="trash-close" data-action="close-trash" aria-label="Close">&times;</button>
+    </div>
+    <div class="trash-list" id="trashList"></div>
+    <div class="trash-empty" id="trashEmpty"></div>
+    <div class="trash-dialog-footer">
+      <button class="action-btn danger" data-action="clear-trash" id="trashClearBtn"></button>
+    </div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="historyOverlay" style="display:none">
+  <section class="trash-dialog history-dialog" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="trash-dialog-header">
+      <div>
+        <h2 id="historyTitle"></h2>
+        <p id="historySubtitle"></p>
+      </div>
+      <button class="trash-close" data-action="close-history" aria-label="Close">&times;</button>
+    </div>
+    <div class="history-toolbar">
+      <button class="action-btn primary" data-action="save-snapshot" id="saveSnapshotBtn"></button>
+    </div>
+    <div class="trash-list" id="historyList"></div>
+    <div class="trash-empty" id="historyEmpty"></div>
+    <h3 class="history-subheading" id="operationHistoryTitle"></h3>
+    <div class="trash-list operation-history-list" id="operationHistoryList"></div>
+    <div class="trash-empty" id="operationHistoryEmpty"></div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="workspacesOverlay" style="display:none">
+  <section class="trash-dialog workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspacesTitle">
+    <div class="trash-dialog-header">
+      <div><h2 id="workspacesTitle"></h2><p id="workspacesSubtitle"></p></div>
+      <button class="trash-close" data-action="close-workspaces" aria-label="Close">&times;</button>
+    </div>
+    <div class="history-toolbar">
+      <select class="workspace-template-select" id="workspaceTemplateSelect"></select>
+      <button class="action-btn" data-action="create-from-template" id="createTemplateBtn"></button>
+      <button class="action-btn primary" data-action="save-current-workspace" id="saveWorkspaceBtn"></button>
+    </div>
+    <div class="workspace-list" id="workspaceList"></div>
+    <div class="trash-empty" id="workspaceEmpty"></div>
+    <div class="workspace-collected-bridge" id="workspaceCollectedBridge"></div>
+    <div class="workspace-automation" id="workspaceAutomation">
+      <h3 id="workspaceSuggestionsTitle"></h3><div id="workspaceSuggestions"></div>
+      <h3 id="workspaceRulesTitle"></h3><div id="workspaceRules"></div>
+      <div class="workspace-exclusion-editor"><input id="workspaceRuleExclusionInput"><button class="action-btn" data-action="add-rule-exclusion" id="workspaceRuleExclusionBtn"></button></div>
+      <div id="workspaceRuleExclusions"></div>
+    </div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="onboardingOverlay" style="display:none">
+  <section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+    <div class="onboarding-kicker">TAB OUT</div>
+    <h1 id="onboardingTitle"></h1>
+    <p class="onboarding-lead" id="onboardingLead"></p>
+    <div class="onboarding-steps">
+      <article class="onboarding-step"><span>1</span><h3 id="onboardingStep1Title"></h3><p id="onboardingStep1Text"></p></article>
+      <article class="onboarding-step"><span>2</span><h3 id="onboardingStep2Title"></h3><p id="onboardingStep2Text"></p></article>
+      <article class="onboarding-step"><span>3</span><h3 id="onboardingStep3Title"></h3><p id="onboardingStep3Text"></p></article>
+    </div>
+    <div class="onboarding-privacy">
+      <strong id="onboardingPrivacyTitle"></strong>
+      <p id="onboardingPrivacyText"></p>
+    </div>
+    <button class="action-btn primary onboarding-start" data-action="finish-onboarding" id="onboardingStartBtn"></button>
+  </section>
+</div>
+
+<div class="modal-overlay" id="restoreOverlay" style="display:none">
+  <section class="restore-dialog" role="dialog" aria-modal="true" aria-labelledby="restoreTitle">
+    <div class="trash-dialog-header">
+      <div><h2 id="restoreTitle"></h2><p id="restoreSummary"></p></div>
+      <button class="trash-close" data-action="cancel-restore" aria-label="Close">&times;</button>
+    </div>
+    <div class="restore-options">
+      <label><input type="radio" name="restoreMode" value="new-window" checked><span id="restoreModeNew"></span></label>
+      <label><input type="radio" name="restoreMode" value="merge"><span id="restoreModeMerge"></span></label>
+      <label><input type="radio" name="restoreMode" value="replace-current"><span id="restoreModeReplace"></span></label>
+      <label class="restore-checkbox"><input type="checkbox" id="restoreSkipDuplicates" checked><span id="restoreSkipText"></span></label>
+    </div>
+    <div class="restore-warning" id="restoreWarning"></div>
+    <div class="restore-footer">
+      <button class="action-btn" data-action="cancel-restore" id="restoreCancelBtn"></button>
+      <button class="action-btn primary" data-action="confirm-restore" id="restoreConfirmBtn"></button>
+    </div>
+  </section>
+</div>
+
+<div class="command-overlay" id="commandOverlay" style="display:none">
+  <section class="command-dialog" role="dialog" aria-modal="true" aria-label="Search">
+    <div class="command-input-row">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
+      <input id="commandInput" autocomplete="off">
+      <kbd>ESC</kbd>
+    </div>
+    <div class="command-results" id="commandResults"></div>
+    <div class="command-empty" id="commandEmpty"></div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="cleanupOverlay" style="display:none">
+  <section class="trash-dialog cleanup-dialog" role="dialog" aria-modal="true" aria-labelledby="cleanupTitle">
+    <div class="trash-dialog-header">
+      <div><h2 id="cleanupTitle"></h2><p id="cleanupSubtitle"></p></div>
+      <button class="trash-close" data-action="close-cleanup" aria-label="Close">&times;</button>
+    </div>
+    <div class="cleanup-summary" id="cleanupSummary"></div>
+    <div class="cleanup-list" id="cleanupList"></div>
+    <div class="cleanup-whitelist">
+      <input id="cleanupWhitelistInput"><button class="action-btn" data-action="add-cleanup-whitelist" id="cleanupWhitelistBtn"></button>
+    </div>
+    <div class="restore-footer"><button class="action-btn danger" data-action="apply-cleanup" id="cleanupApplyBtn"></button></div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="upgradeOverlay" style="display:none">
+  <section class="upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="upgradeTitle">
+    <button class="trash-close upgrade-close" data-action="close-upgrade" aria-label="Close">&times;</button>
+    <div class="onboarding-kicker">TAB OUT PRO</div><h2 id="upgradeTitle"></h2><p id="upgradeSubtitle"></p>
+    <div class="upgrade-plans">
+      <article><h3 id="proLifetimeTitle"></h3><div class="upgrade-price">$29</div><p id="proLifetimeText"></p><button class="action-btn primary" data-action="start-checkout" data-plan="pro_lifetime" id="buyLifetimeBtn"></button></article>
+      <article><h3 id="syncPlanTitle"></h3><div class="upgrade-price">$24<span>/yr</span></div><p id="syncPlanText"></p><button class="action-btn primary" data-action="start-checkout" data-plan="sync" id="buySyncBtn"></button></article>
+    </div>
+    <div class="license-activate"><input id="licenseTokenInput"><button class="action-btn" data-action="activate-license" id="activateLicenseBtn"></button></div>
+    <div class="upgrade-status" id="upgradeStatus"></div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay" style="display:none">
+  <section class="trash-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="trash-dialog-header"><div><h2 id="settingsTitle"></h2><p id="settingsSubtitle"></p></div><button class="trash-close" data-action="close-settings" aria-label="Close">&times;</button></div>
+    <div class="settings-grid">
+      <section class="settings-section"><h3 id="settingsPrivacyTitle"></h3><p id="settingsPrivacyText"></p><label class="settings-toggle"><span id="settingsTelemetryLabel"></span><input type="checkbox" id="settingsTelemetryInput" data-setting="telemetryOptInV1"></label></section>
+      <section class="settings-section"><h3 id="settingsRecoveryTitle"></h3><label class="settings-toggle"><span id="settingsSnapshotsLabel"></span><input type="checkbox" id="settingsSnapshotsInput" data-setting="automaticSnapshotsEnabledV1"></label><div class="settings-meta" id="settingsStorageUsage"></div></section>
+      <section class="settings-section"><h3 id="settingsAutomationTitle"></h3><label class="settings-toggle"><span id="settingsRulesLabel"></span><input type="checkbox" id="settingsRulesInput" data-setting="workspaceAutomationEnabledV1"></label></section>
+      <section class="settings-section"><h3 id="settingsDataTitle"></h3><p id="settingsDataText"></p><div class="settings-actions"><button class="action-btn" data-action="settings-export" id="settingsExportBtn"></button><button class="action-btn" data-action="settings-import" id="settingsImportBtn"></button></div></section>
+      <section class="settings-section"><h3 id="settingsPlanTitle"></h3><div class="settings-meta" id="settingsPlanStatus"></div><div class="settings-actions"><button class="action-btn primary" data-action="open-upgrade" id="settingsUpgradeBtn"></button><button class="action-btn" data-action="deactivate-license" id="settingsDeactivateBtn"></button></div></section>
+      <section class="settings-section"><h3 id="settingsSyncTitle"></h3><p id="settingsSyncStatus"></p></section>
+    </div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="importPreviewOverlay" style="display:none">
+  <section class="restore-dialog" role="dialog" aria-modal="true" aria-labelledby="importPreviewTitle">
+    <div class="trash-dialog-header"><div><h2 id="importPreviewTitle"></h2><p id="importPreviewSummary"></p></div><button class="trash-close" data-action="cancel-import-preview" aria-label="Close">&times;</button></div>
+    <div class="restore-options">
+      <label><input type="radio" name="importStrategy" value="merge" checked><span id="importStrategyMerge"></span></label>
+      <label><input type="radio" name="importStrategy" value="replace"><span id="importStrategyReplace"></span></label>
+    </div>
+    <div class="restore-warning visible-warning" id="importPreviewWarning"></div>
+    <div class="restore-footer"><button class="action-btn" data-action="cancel-import-preview" id="importCancelBtn"></button><button class="action-btn primary" data-action="confirm-import-preview" id="importConfirmBtn"></button></div>
+  </section>
+</div>
 
 <!-- ================================================================
      TOAST — floats above everything, used for action confirmations
@@ -162,14 +331,39 @@
     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
   <span id="toastText"></span>
+  <button class="toast-action" id="toastAction" data-action="undo-last-operation" style="display:none"></button>
 </div>
 
-<!-- Personal config (gitignored) — defines LOCAL_LANDING_PAGE_PATTERNS etc. -->
-<!-- If the file doesn't exist, that's fine — app.js uses sensible defaults. -->
-<script src="config.local.js" onerror="/* no personal config, that's fine */"></script>
+<!-- Optional grouping defaults. This file ships with the extension so MV3 never loads a missing script. -->
+<script src="config.js"></script>
+<script src="entitlement-config.js"></script>
 
 <!-- i18n — auto-detects browser language (en / zh-CN) -->
 <script src="i18n.js"></script>
+
+<!-- Tested core modules — loaded before the legacy dashboard controller -->
+<script src="src/shared/sanitize.js"></script>
+<script src="src/domain/session.js"></script>
+<script src="src/domain/rule-engine.js"></script>
+<script src="src/storage/schema.js"></script>
+<script src="src/storage/operation-repository.js"></script>
+<script src="src/storage/trash-repository.js"></script>
+<script src="src/storage/snapshot-repository.js"></script>
+<script src="src/storage/workspace-repository.js"></script>
+<script src="src/storage/rule-repository.js"></script>
+<script src="src/storage/restore-job-repository.js"></script>
+<script src="src/api/chrome-session-adapter.js"></script>
+<script src="src/services/operation-service.js"></script>
+<script src="src/services/migration-service.js"></script>
+<script src="src/services/snapshot-service.js"></script>
+<script src="src/services/restore-planner.js"></script>
+<script src="src/services/template-service.js"></script>
+<script src="src/services/search-service.js"></script>
+<script src="src/services/cleanup-analyzer.js"></script>
+  <script src="src/services/entitlement-service.js"></script>
+<script src="src/services/backup-service.js"></script>
+<script src="src/services/telemetry-service.js"></script>
+<script src="src/services/collection-transfer-service.js"></script>
 
 <!-- Main dashboard logic — loads last so the DOM is ready -->
 <script src="app.js"></script>

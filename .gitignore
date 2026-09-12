@@ -1,11 +1,12 @@
 node_modules/
+dist/
 *.log
 *.db
 .DS_Store
 docs/superpowers/
 
-# Personal config (landing page patterns, etc.) — never push to GitHub
-extension/config.local.js
-
 # Extension signing key — never commit
 *.pem
+
+# Stark 办公室本机配置
+CLAUDE.local.md

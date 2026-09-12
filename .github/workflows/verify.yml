@@ -1,0 +1,31 @@
+name: Verify extension
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm test
+      - run: npm run check
+      - run: find extension server tools -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | xargs -0 -n1 node --check
+      - run: node -e "JSON.parse(require('node:fs').readFileSync('extension/manifest.json', 'utf8'))"
+      - run: >-
+          ! grep -RInE '<script[^>]+src=[^>]*https?://|on(error|load|click)=|eval\(|new Function\(' extension
+      - run: |
+          mkdir -p dist
+          cd extension
+          zip -qr ../dist/tab-out.zip . -x '*.DS_Store'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tab-out-extension
+          path: dist/tab-out.zip

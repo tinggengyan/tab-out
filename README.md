@@ -4,7 +4,7 @@
 
 Tab Out is a Chrome extension that replaces your new tab page with a dashboard of everything you have open. Tabs are grouped by domain, with homepages (Gmail, X, LinkedIn, etc.) pulled into their own group. Close tabs with a satisfying swoosh + confetti.
 
-No server. No account. No external API calls. Just a Chrome extension.
+Local by default, with no account required. Optional paid activation is verified offline; checkout opens only when the user explicitly requests it.
 
 ---
 
@@ -30,8 +30,13 @@ The agent will walk you through it. Takes about 1 minute.
 - **Save for later** bookmark tabs to a checklist before closing them
 - **Localhost grouping** shows port numbers next to each tab so you can tell your vibe coding projects apart
 - **Expandable groups** show the first 8 tabs with a clickable "+N more"
-- **100% local** your data never leaves your machine
-- **Pure Chrome extension** no server, no Node.js, no npm, no setup beyond loading the extension
+- **Safe close and undo** restores window layout, pinned tabs, and native tab groups
+- **Automatic snapshots and history** recover a complete browsing session after mistakes or crashes
+- **Project workspaces** support rules, templates, bulk actions, and opening only missing pages
+- **Global command search** covers open tabs, workspaces, collected groups, history, and saved items
+- **Portable backup** exports and validates the complete user-owned dataset
+- **Local by default** browsing content stays on the device unless optional encrypted sync is explicitly enabled in a future release
+- **Pure Chrome runtime** no local server or runtime package installation
 
 ---
 
@@ -67,7 +72,7 @@ You open a new tab
   -> Save tabs for later before closing them
 ```
 
-Everything runs inside the Chrome extension. No external server, no API calls, no data sent anywhere. Saved tabs are stored in `chrome.storage.local`.
+Everything runs inside the Chrome extension. Browsing assets are stored in `chrome.storage.local`. A configured external checkout page is opened only after an explicit purchase click; license verification itself is local.
 
 ---
 
@@ -77,8 +82,23 @@ Everything runs inside the Chrome extension. No external server, no API calls, n
 |------|-----|
 | Extension | Chrome Manifest V3 |
 | Storage | chrome.storage.local |
+| Optional licensing backend | Web-standard Worker + Lemon Squeezy License API |
 | Sound | Web Audio API (synthesized, no files) |
 | Animations | CSS transitions + JS confetti particles |
+
+## Development
+
+The extension has no runtime dependencies. Node.js is used only for automated verification:
+
+```bash
+npm test
+npm run check
+npm run package
+```
+
+Core domain, storage, and Chrome API adapters live under `extension/src/`. Tests use Node's built-in test runner and run in CI on every push and pull request.
+
+Commercial release configuration and license issuance are documented in [docs/COMMERCIAL_RELEASE.md](docs/COMMERCIAL_RELEASE.md). Product and implementation scope are tracked in [docs/PRODUCT_PLAN.md](docs/PRODUCT_PLAN.md), [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md), and the requirement-level [docs/REQUIREMENTS_AUDIT.md](docs/REQUIREMENTS_AUDIT.md).
 
 ---
 
