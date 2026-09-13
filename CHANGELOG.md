@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — 2026-09-14
+
+- Made dashboard and omnibox open-tab search available on Free, retaining Pro gates for advanced saved assets.
+- Added configurable website names and aliases, encoded `{Query}` templates, direct platform search, and explicit test search.
+- Added local platform management with validated import previews, full backup support, and concurrent edit protection.
+- Preserved exact tab identity when selecting duplicate URLs across windows; added stale-tab feedback, asynchronous suggestion guards, and Chinese IME protection.
+- Ordinary omnibox queries now open the dashboard with their query instead of silently returning. No new permissions or runtime dependencies.
+- Added unit coverage and isolated Chrome journeys for Free search, platform configuration, query encoding, exact duplicate selection, and platform backup restoration.
+
 ## 2.0.0 — 2026-08-10
 
 - Added persistent 30-second undo, stepwise recent undo, trash, destructive-action previews, and safe full-data import/export.

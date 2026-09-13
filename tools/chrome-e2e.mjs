@@ -2,6 +2,8 @@
 
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 const debuggerOrigin = process.env.TAB_OUT_CDP_ORIGIN || 'http://127.0.0.1:9333';
 const extensionId = process.env.TAB_OUT_EXTENSION_ID || 'gbbakbpcbbcilmggnkcahkemicknngbo';
@@ -103,6 +105,13 @@ async function main() {
   async function extensionState(expression) {
     return evaluate(`(async () => { const state = await chrome.storage.local.get(null); return (${expression}); })()`);
   }
+  async function screenshot(name) {
+    if (!process.env.TAB_OUT_E2E_SCREENSHOT_DIR) return;
+    const directory = process.env.TAB_OUT_E2E_SCREENSHOT_DIR;
+    await mkdir(directory, { recursive: true });
+    const { data } = await cdp.send('Page.captureScreenshot', { format: 'png' });
+    await writeFile(join(directory, name + '.png'), Buffer.from(data, 'base64'));
+  }
 
   await waitFor("document.readyState === 'complete' && document.querySelector('#onboardingOverlay')", 'dashboard load');
   await evaluate(`(async () => { await chrome.storage.local.clear(); location.reload(); })()`);
@@ -111,6 +120,43 @@ async function main() {
   await click('[data-action="finish-onboarding"]');
   await waitFor(`openTabs.filter(tab => tab.url?.startsWith(${JSON.stringify(fixtureOrigin)})).length === 3`, 'fixture URLs to commit');
   await waitFor("document.querySelectorAll('#openTabsMissions .mission-card').length > 0", 'open-tab dashboard');
+
+  // Free unified search and platform configuration use the real dashboard UI.
+  await click('#searchOpenBtn');
+  await waitFor("getComputedStyle(document.querySelector('#commandOverlay')).display !== 'none'", 'Free search opens');
+  await evaluate(`document.querySelector('#commandInput').value = 'e2e-one'; document.querySelector('#commandInput').dispatchEvent(new Event('input', { bubbles: true }))`);
+  await waitFor("document.querySelectorAll('.command-result').length > 0", 'Free open-tab results');
+  assert.equal(await evaluate(`commandSearchItems.get(document.querySelector('.command-result').dataset.searchId).type`), 'open');
+  await click('#platformSettingsBtn');
+  await waitFor("document.querySelector('.sps-overlay') && !document.querySelector('.sps-overlay').hidden", 'platform settings');
+  await click('.sps-toolbar .sps-primary');
+  await evaluate(`(() => {
+    const values = { name: '语雀', aliases: 'yuque, yq', domain: 'example.com', searchUrlTemplate: ${JSON.stringify(`${fixtureOrigin}/search?q={Query}`)} };
+    for (const [name, value] of Object.entries(values)) document.querySelector('.sps-editor [name="' + name + '"]').value = value;
+    document.querySelector('.sps-editor').requestSubmit();
+  })()`);
+  await waitFor("chrome.storage.local.get('searchPlatformsV1').then(s => s.searchPlatformsV1?.length === 1)", 'platform config persists');
+  await screenshot('platform-settings');
+  await evaluate(`document.querySelector('.sps-dialog').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+  await click('#searchOpenBtn');
+  await evaluate(`document.querySelector('#commandInput').value = 'yq 中文 & #'; document.querySelector('#commandInput').dispatchEvent(new Event('input', { bubbles: true }))`);
+  await waitFor("document.querySelector('.command-result') && commandSearchItems.get(document.querySelector('.command-result').dataset.searchId)?.type === 'platform'", 'platform alias search result');
+  await screenshot('platform-search');
+  await click('.command-result');
+  const expectedSearchUrl = `${fixtureOrigin}/search?q=${encodeURIComponent('中文 & #')}`;
+  await waitFor(`chrome.tabs.query({}).then(tabs => tabs.some(tab => tab.url === ${JSON.stringify(expectedSearchUrl)}))`, 'encoded platform search opens');
+  await evaluate(`chrome.tabs.query({}).then(tabs => Promise.all(tabs.filter(tab => tab.url === ${JSON.stringify(expectedSearchUrl)}).map(tab => chrome.tabs.remove(tab.id))))`);
+  // An explicitly chosen duplicate must focus that exact tab in its own window.
+  const duplicate = await evaluate(`chrome.windows.create({url:${JSON.stringify(`${fixtureOrigin}/e2e-one`)},focused:false}).then(w => ({windowId:w.id, tabId:w.tabs[0].id}))`);
+  await evaluate(`openCommandPalette('e2e-one')`);
+  await waitFor(`document.querySelectorAll('.command-result').length >= 2`, 'duplicate results');
+  const duplicateResult = await evaluate(`Array.from(commandSearchItems.values()).find(item => item.tabId === ${duplicate.tabId})?.id`);
+  assert.ok(duplicateResult, 'selected duplicate has no result identity');
+  await click(`[data-search-id="${duplicateResult}"]`);
+  await waitFor(`chrome.tabs.get(${duplicate.tabId}).then(tab => tab.active)`, 'exact duplicate activates');
+  assert.equal(await evaluate(`chrome.windows.get(${duplicate.windowId}).then(w => w.focused)`), true);
+  await evaluate(`chrome.windows.remove(${duplicate.windowId})`);
+  console.log('PASS Free search, platform aliases, encoded query, settings persistence and duplicate identity');
 
   await click('[data-action="collect-all-tabs"]');
   await waitFor("document.querySelector('#toastAction').style.display !== 'none'", 'collect undo action');
@@ -191,13 +237,14 @@ async function main() {
   await evaluate(`(async () => {
     const state = await chrome.storage.local.get(null);
     globalThis.__tabOutE2EBackup = JSON.stringify(TabOutCore.createPortableBackup(state));
-    await chrome.storage.local.remove(['workspacesV2', 'snapshotsV2', 'tabGroups', 'deferred', 'shortcuts']);
+    await chrome.storage.local.remove(['workspacesV2', 'snapshotsV2', 'tabGroups', 'deferred', 'shortcuts', 'searchPlatformsV1']);
     const file = new File([globalThis.__tabOutE2EBackup], 'tab-out.config', { type: 'application/json' });
     await importConfig(file);
   })()`);
   await waitFor("getComputedStyle(document.querySelector('#importPreviewOverlay')).display !== 'none'", 'import preview');
   await click('[data-action="confirm-import-preview"]');
   await waitFor("document.querySelector('#importPreviewOverlay').style.display === 'none'", 'import completion');
+  assert.equal(await extensionState("state.searchPlatformsV1?.[0]?.name"), '语雀', 'full backup did not restore platforms');
   assert.ok(await extensionState("state.workspacesV2?.some(item => item.name === 'E2E Workspace')"));
   assert.ok(await extensionState("state.snapshotsV2?.some(item => item.note === 'Isolated Chrome E2E')"));
 
@@ -225,7 +272,7 @@ async function main() {
     };
   })()`);
   await click('[data-action="confirm-restore"]');
-  await waitFor("pendingRetrySession !== null", 'partial restore report');
+  await waitFor("restoreJobRepository.list().then(jobs => jobs.some(job => job.id === pendingRestoreJobId && job.status === 'partially_failed'))", 'partial restore report persisted');
   assert.match(await evaluate("document.querySelector('#restoreSummary').textContent"), /1/);
   await click('[data-action="confirm-restore"]');
   await waitFor("getComputedStyle(document.querySelector('#restoreOverlay')).display === 'none'", 'restore retry completion');
@@ -240,7 +287,7 @@ async function main() {
   fixtureServer = null;
   process.stdout.write(JSON.stringify({
     ok: true,
-    journeys: ['onboarding-collect-undo', 'automatic-snapshot-window-restore', 'manual-snapshot', 'free-limit-purchase-unlock', 'workspace-search', 'backup-import', 'interrupted-partial-restore-report-retry'],
+    journeys: ['free-unified-search', 'platform-alias-search', 'duplicate-tab-identity', 'onboarding-collect-undo', 'automatic-snapshot-window-restore', 'manual-snapshot', 'free-limit-purchase-unlock', 'workspace-search', 'backup-import', 'interrupted-partial-restore-report-retry'],
     operationCount: operations.length,
   }, null, 2) + '\n');
 }

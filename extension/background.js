@@ -12,6 +12,10 @@ importScripts(
   'src/services/operation-service.js',
   'src/services/entitlement-service.js',
   'src/services/search-service.js',
+  'src/services/platform-search-service.js',
+  'src/storage/search-platform-repository.js',
+  'src/services/unified-search-service.js',
+  'src/services/omnibox-search-service.js',
   'src/services/telemetry-service.js'
 );
 
@@ -239,45 +243,26 @@ chrome.alarms.create('tab-out-maintenance', { periodInMinutes: 360 });
 captureBaselineIfEnabled().catch(() => {});
 refreshCommercialEntitlement().catch(() => {});
 
-async function buildOmniboxIndex() {
-  if (!await backgroundEntitlementService.has('search.advanced')) return TabOutCore.createSearchIndex([]);
-  const [tabs, stored] = await Promise.all([
-    chrome.tabs.query({}),
-    chrome.storage.local.get(['workspacesV2', 'deferred', 'tabGroups', 'snapshotsV2']),
-  ]);
+async function buildOmniboxAdvancedItems() {
+  if (!await backgroundEntitlementService.has('search.advanced')) return [];
+  const stored = await chrome.storage.local.get(['workspacesV2', 'deferred', 'tabGroups', 'snapshotsV2']);
   const items = [];
-  tabs.forEach(tab => { if (TabOutCore.normalizeWebUrl(tab.url)) items.push({ id: `tab:${tab.id}`, type: 'open', title: tab.title || tab.url, url: tab.url }); });
   (stored.workspacesV2 || []).forEach(workspace => workspace.entries.forEach(entry => items.push({ id: `workspace:${entry.id}`, type: 'workspace', title: entry.title, subtitle: workspace.name, url: entry.url })));
   (stored.deferred || []).filter(item => !item.dismissed).forEach(item => items.push({ id: `deferred:${item.id}`, type: 'deferred', title: item.title, url: item.url }));
   (stored.tabGroups || []).forEach(group => group.tabs.forEach((tab, index) => items.push({ id: `group:${group.id}:${index}`, type: 'collected', title: tab.title, url: tab.url })));
   (stored.snapshotsV2 || []).forEach(snapshot => (snapshot.windows || []).forEach(window => (window.tabs || []).forEach(tab => {
     if (tab.restorable && TabOutCore.normalizeWebUrl(tab.url)) items.push({ id: `history:${snapshot.id}:${tab.id}`, type: 'history', title: tab.title, subtitle: snapshot.capturedAt, url: tab.url });
   })));
-  return TabOutCore.createSearchIndex(items);
+  return items;
 }
 
-function escapeOmnibox(value) {
-  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-chrome.omnibox.onInputChanged.addListener((text, suggest) => {
-  buildOmniboxIndex().then(index => {
-    suggest(index.search(text, { limit: 5 }).filter(item => item.url).map(item => ({
-      content: item.url,
-      description: `<match>${escapeOmnibox(item.title)}</match> <dim>${escapeOmnibox(item.subtitle || item.url)}</dim>`,
-    })));
-  }).catch(() => suggest([]));
-});
-
-chrome.omnibox.onInputEntered.addListener(async text => {
-  const url = TabOutCore.normalizeWebUrl(text);
-  if (!url) return;
-  const tabs = await chrome.tabs.query({});
-  const existing = tabs.find(tab => tab.url === url);
-  if (existing) {
-    await chrome.windows.update(existing.windowId, { focused: true });
-    await chrome.tabs.update(existing.id, { active: true });
-  } else await chrome.tabs.create({ url });
+TabOutCore.installOmniboxSearch(chrome, {
+  platforms: TabOutCore.createSearchPlatformRepository(chrome.storage.local),
+  advancedItems: buildOmniboxAdvancedItems,
+  async openDashboard(query, error) {
+    const hash = new URLSearchParams({ search: query, ...(error ? { error } : {}) });
+    await chrome.tabs.create({ url: chrome.runtime.getURL('index.html') + '#' + hash.toString() });
+  },
 });
 
 async function openTabOut(openSearch = false) {

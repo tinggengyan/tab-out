@@ -10,6 +10,16 @@
 
 const I18N_LOCALES = {
   en: {
+    "search.switch": "Switch to tab",
+    "search.searchPlatform": "Search website",
+    "search.window": "Window {n}",
+    "search.enterQuery": "Enter search words",
+    "search.failed": "Search failed. Please retry.",
+    "search.stale": "That tab is no longer open. Results have been refreshed.",
+    "search.loading": "Loading…",
+    "search.platformSettings": "Search websites",
+    "search.hint": "Search open tabs, or type a website name and query. Address bar: to + Tab.",
+
     // Greetings
     'greeting.morning':       'Good morning',
     'greeting.afternoon':     'Good afternoon',
@@ -185,7 +195,7 @@ const I18N_LOCALES = {
     'workspaces.chooseTarget': 'Enter the workspace number',
     'workspaces.createNew':    'Create a new workspace',
     'toast.templateSaved':    'Template saved',
-    'search.commandPlaceholder': 'Search tabs, workspaces, saved items, and history…',
+    'search.commandPlaceholder': 'Search open tabs, or website + query…',
     'search.commandEmpty':    'Search everything · filters: type:history after:2026-01-01',
     'search.noResults':       'No matching tabs or saved items',
     'search.typeOpen':        'Open tab',
@@ -308,6 +318,16 @@ const I18N_LOCALES = {
   },
 
   'zh-CN': {
+    "search.switch": "切换到标签",
+    "search.searchPlatform": "搜索网站",
+    "search.window": "窗口 {n}",
+    "search.enterQuery": "请继续输入搜索词",
+    "search.failed": "搜索失败，请重试。",
+    "search.stale": "该标签已关闭，已刷新结果。",
+    "search.loading": "正在加载…",
+    "search.platformSettings": "配置搜索网站",
+    "search.hint": "搜索已打开标签，或输入网站名称和搜索词。地址栏：to + Tab。",
+
     // Greetings
     'greeting.morning':       '早上好',
     'greeting.afternoon':     '下午好',
@@ -483,7 +503,7 @@ const I18N_LOCALES = {
     'workspaces.chooseTarget': '输入目标工作空间序号',
     'workspaces.createNew':    '新建工作空间',
     'toast.templateSaved':    '模板已保存',
-    'search.commandPlaceholder': '搜索标签、工作空间、收纳和历史…',
+    'search.commandPlaceholder': '搜索已打开标签，或输入网站名称和搜索词…',
     'search.commandEmpty':    '搜索全部内容 · 可用筛选：type:history after:2026-01-01',
     'search.noResults':       '没有匹配的标签或保存项',
     'search.typeOpen':        '已打开标签',

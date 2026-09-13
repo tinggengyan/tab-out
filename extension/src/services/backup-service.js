@@ -2,7 +2,7 @@
   'use strict';
 
   const PORTABLE_KEYS = Object.freeze([
-    'storageMeta', 'shortcuts', 'deferred', 'tabGroups', 'sessionsV2', 'snapshotsV2', 'workspacesV2',
+    'storageMeta', 'shortcuts', 'searchPlatformsV1', 'deferred', 'tabGroups', 'sessionsV2', 'snapshotsV2', 'workspacesV2',
     'workspaceRulesV2', 'workspaceRuleExclusionsV2', 'workspaceSuggestionsV2', 'workspaceTemplatesV2',
     'operationsV2', 'restoreJobsV2', 'trashV2', 'cleanupWhitelistV2', 'onboardingV1',
     'automaticSnapshotsEnabledV1', 'workspaceAutomationEnabledV1', 'telemetryOptInV1',
@@ -10,6 +10,9 @@
     'telemetryEventsV1', 'localErrorsV1',
   ]);
   const WEB_URL = /^https?:\/\//i;
+  const validateSearchPlatforms = typeof require === 'function'
+    ? require('./platform-search-service.js').validateSearchPlatforms
+    : globalScope.TabOutCore.validateSearchPlatforms;
 
   function createPortableBackup(state, options = {}) {
     const data = {};
@@ -28,7 +31,7 @@
     }
     const keys = Object.keys(payload.data);
     if (!keys.length || keys.some(key => !PORTABLE_KEYS.includes(key))) return { ok: false, error: 'Unknown backup collection' };
-    const arrayKeys = new Set(['shortcuts', 'deferred', 'tabGroups', 'sessionsV2', 'snapshotsV2', 'workspacesV2', 'workspaceRulesV2', 'workspaceRuleExclusionsV2', 'workspaceSuggestionsV2', 'workspaceTemplatesV2', 'operationsV2', 'restoreJobsV2', 'trashV2', 'cleanupWhitelistV2', 'telemetryEventsV1', 'localErrorsV1']);
+    const arrayKeys = new Set(['shortcuts', 'searchPlatformsV1', 'deferred', 'tabGroups', 'sessionsV2', 'snapshotsV2', 'workspacesV2', 'workspaceRulesV2', 'workspaceRuleExclusionsV2', 'workspaceSuggestionsV2', 'workspaceTemplatesV2', 'operationsV2', 'restoreJobsV2', 'trashV2', 'cleanupWhitelistV2', 'telemetryEventsV1', 'localErrorsV1']);
     const booleanKeys = new Set(['onboardingV1', 'automaticSnapshotsEnabledV1', 'workspaceAutomationEnabledV1', 'telemetryOptInV1']);
     if (keys.some(key => arrayKeys.has(key) && !Array.isArray(payload.data[key]))) return { ok: false, error: 'Invalid backup collection type' };
     if (keys.some(key => booleanKeys.has(key) && typeof payload.data[key] !== 'boolean')) return { ok: false, error: 'Invalid backup setting type' };
@@ -66,8 +69,10 @@
       }
     }
     try {
+      const safeData = structuredClone(payload.data);
+      if (payload.data.searchPlatformsV1 !== undefined) safeData.searchPlatformsV1 = validateSearchPlatforms(payload.data.searchPlatformsV1);
       inspect(payload.data, 0);
-      return { ok: true, data: structuredClone(payload.data), report: { collections: keys.length, items } };
+      return { ok: true, data: safeData, report: { collections: keys.length, items } };
     } catch (error) { return { ok: false, error: error.message }; }
   }
 
@@ -77,6 +82,22 @@
     for (const key of Object.keys(incoming || {})) {
       const next = incoming[key];
       const existing = current?.[key];
+      if (key === 'searchPlatformsV1') {
+        const localPlatforms = validateSearchPlatforms(Array.isArray(existing) ? existing : []);
+        const importedPlatforms = validateSearchPlatforms(Array.isArray(next) ? next : []);
+        const ids = new Set(localPlatforms.map(item => item.id));
+        const commands = new Set(localPlatforms.flatMap(item => [item.name, ...item.aliases].map(value => value.normalize('NFKC').trim().toLowerCase())));
+        const merged = [...localPlatforms];
+        for (const platform of importedPlatforms) {
+          const platformCommands = [platform.name, ...platform.aliases].map(value => value.normalize('NFKC').trim().toLowerCase());
+          if (ids.has(platform.id) || platformCommands.some(command => commands.has(command))) { conflicts += 1; continue; }
+          merged.push(platform);
+          ids.add(platform.id);
+          platformCommands.forEach(command => commands.add(command));
+        }
+        data[key] = validateSearchPlatforms(merged);
+        continue;
+      }
       if (!Array.isArray(next) || !Array.isArray(existing)) { data[key] = structuredClone(next); continue; }
       const identity = item => {
         if (item && typeof item === 'object') return item.id || item.entityId || item.url || JSON.stringify(item);

@@ -17,6 +17,39 @@ test('portable backup includes user assets and settings but excludes entitlement
   assert.equal(backup.exportedAt, '2026-08-10T00:00:00.000Z');
 });
 
+test('portable backup round-trips validated search platforms', () => {
+  const searchPlatformsV1 = [{
+    id: 'docs', name: 'Docs', aliases: ['d'], domain: 'docs.example.com',
+    searchUrlTemplate: 'https://docs.example.com/search?q={Query}',
+  }];
+  const backup = createPortableBackup({ searchPlatformsV1 });
+  assert.deepEqual(backup.data.searchPlatformsV1, searchPlatformsV1);
+  assert.deepEqual(validatePortableBackup(backup).data.searchPlatformsV1, searchPlatformsV1);
+});
+
+test('portable backup validation returns normalized search platform configuration', () => {
+  const payload = createPortableBackup({ searchPlatformsV1: [{
+    id: 'docs', name: ' Ｄｏｃｓ ', aliases: [' d ', 'Ｄ'], domain: 'DOCS.EXAMPLE.COM',
+    searchUrlTemplate: ' https://docs.example.com/search?q={Query} ',
+  }] });
+  const result = validatePortableBackup(payload);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.data.searchPlatformsV1[0], {
+    id: 'docs', name: 'Docs', aliases: ['d'], domain: 'docs.example.com',
+    searchUrlTemplate: 'https://docs.example.com/search?q={Query}',
+  });
+});
+
+test('portable backup rejects invalid search platform configuration', () => {
+  const payload = createPortableBackup({ searchPlatformsV1: [{
+    id: 'bad', name: 'Bad', aliases: [], domain: 'example.com',
+    searchUrlTemplate: 'javascript:alert({Query})',
+  }] });
+  const result = validatePortableBackup(payload);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /searchUrlTemplate/);
+});
+
 test('portable backup validation rejects executable URLs and unknown keys', () => {
   assert.equal(validatePortableBackup({ version: 2, data: { shortcuts: [{ url: 'javascript:alert(1)' }] } }).ok, false);
   assert.equal(validatePortableBackup({ version: 2, data: { madeUp: [] } }).ok, false);
@@ -54,3 +87,22 @@ test('portable merge keeps local records and lets imported ids win conflicts', (
   assert.equal(result.data.automaticSnapshotsEnabledV1, true);
   assert.equal(result.conflicts, 1);
 });
+
+test('portable merge keeps local search platforms and omits conflicting imported commands', () => {
+  const current = { searchPlatformsV1: [{
+    id: 'local', name: 'Local Docs', aliases: ['docs'], domain: 'local.example',
+    searchUrlTemplate: 'https://local.example/{Query}',
+  }] };
+  const incoming = { searchPlatformsV1: [
+    { id: 'conflict', name: 'Imported', aliases: ['DOCS'], domain: 'imported.example', searchUrlTemplate: 'https://imported.example/{Query}' },
+    { id: 'new', name: 'Search', aliases: ['s'], domain: 'search.example', searchUrlTemplate: 'https://search.example/{Query}' },
+  ] };
+  const result = mergePortableData(current, incoming);
+  assert.deepEqual(result.data.searchPlatformsV1.map(item => item.id), ['local', 'new']);
+  assert.equal(result.conflicts, 1);
+  assert.deepEqual(validateSearchPlatformsForTest(result.data.searchPlatformsV1).map(item => item.id), ['local', 'new']);
+});
+
+function validateSearchPlatformsForTest(platforms) {
+  return require('../../extension/src/services/platform-search-service.js').validateSearchPlatforms(platforms);
+}

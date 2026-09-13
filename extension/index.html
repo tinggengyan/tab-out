@@ -6,6 +6,7 @@
   <title>Tab Out</title>
 
   <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="src/ui/search-platform-settings.css">
 </head>
 <body>
 <div class="page-wrapper">
@@ -262,6 +263,7 @@
       <input id="commandInput" autocomplete="off">
       <kbd>ESC</kbd>
     </div>
+    <div class="command-toolbar"><span id="commandHint"></span><button class="action-btn" id="platformSettingsBtn" data-action="open-platform-settings"></button></div>
     <div class="command-results" id="commandResults"></div>
     <div class="command-empty" id="commandEmpty"></div>
   </section>
@@ -359,11 +361,16 @@
 <script src="src/services/restore-planner.js"></script>
 <script src="src/services/template-service.js"></script>
 <script src="src/services/search-service.js"></script>
+<script src="src/services/platform-search-service.js"></script>
+<script src="src/storage/search-platform-repository.js"></script>
+<script src="src/services/unified-search-service.js"></script>
 <script src="src/services/cleanup-analyzer.js"></script>
   <script src="src/services/entitlement-service.js"></script>
 <script src="src/services/backup-service.js"></script>
 <script src="src/services/telemetry-service.js"></script>
 <script src="src/services/collection-transfer-service.js"></script>
+
+<script src="src/ui/search-platform-settings.js"></script>
 
 <!-- Main dashboard logic — loads last so the DOM is ready -->
 <script src="app.js"></script>

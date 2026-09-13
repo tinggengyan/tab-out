@@ -32,6 +32,9 @@ let pendingRetrySession = null;
 let pendingRetryGroupFailures = [];
 let pendingRestoreJobId = null;
 let commandSearchIndex = null;
+let commandPlatforms = [];
+let commandBuildGeneration = 0;
+let commandHasAdvanced = false;
 let commandSearchItems = new Map();
 let commandSelectedIndex = 0;
 let pendingImport = null;
@@ -748,10 +751,16 @@ async function saveTabsToWorkspace(tabs) {
 }
 
 async function buildCommandSearchIndex() {
-  await fetchOpenTabs();
-  const [workspaces, snapshots, groups, saved] = await Promise.all([
+  const generation = ++commandBuildGeneration;
+  const tabs = await chrome.tabs.query({});
+  const advanced = await entitlementService.has('search.advanced');
+  const platforms = await TabOutCore.createSearchPlatformRepository(chrome.storage.local).list();
+  const [workspaces, snapshots, groups, saved] = advanced ? await Promise.all([
     workspaceRepository.list(), snapshotRepository.list(), getTabGroups(), getSavedTabs(),
-  ]);
+  ]) : [[], [], [], { active: [], archived: [] }];
+  if (generation !== commandBuildGeneration) return;
+  commandPlatforms = platforms;
+  commandHasAdvanced = advanced;
   const items = [];
   let sequence = 0;
   const add = item => {
@@ -761,7 +770,7 @@ async function buildCommandSearchIndex() {
     commandSearchItems.set(searchId, record);
   };
   commandSearchItems = new Map();
-  getRealTabs().forEach(tab => add({ type: 'open', title: tab.title || tab.url, url: tab.url, createdAt: tab.lastAccessed ? new Date(tab.lastAccessed).toISOString() : undefined }));
+  TabOutCore.openTabSearchItems(tabs).forEach(add);
   workspaces.forEach(workspace => {
     add({ type: 'workspace', title: workspace.name, subtitle: workspace.description, workspaceId: workspace.id, updatedAt: workspace.updatedAt });
     workspace.entries.forEach(entry => add({ type: 'workspace', title: entry.title, subtitle: workspace.name, url: entry.url, workspaceId: workspace.id, entryId: entry.id, addedAt: entry.addedAt }));
@@ -779,8 +788,20 @@ function searchTypeLabel(type) {
 }
 
 function renderCommandResults(query) {
-  const parsed = TabOutCore.parseSearchQuery(query);
-  const results = commandSearchIndex?.search(parsed.text, { limit: 30, types: parsed.types, after: parsed.after, before: parsed.before }) || [];
+  let command;
+  try { command = TabOutCore.parsePlatformQuery(query, commandPlatforms); }
+  catch { command = { kind: 'tabs', query }; }
+  const parsed = commandHasAdvanced ? TabOutCore.parseSearchQuery(query) : { text: query };
+  const results = command.kind === 'platform'
+    ? [{ type: 'platform', title: command.platform.name, platform: command.platform, url: command.url, query: command.query }]
+    : [...(commandSearchIndex?.search(parsed.text, { limit: 30, types: parsed.types, after: parsed.after, before: parsed.before }) || []),
+      ...TabOutCore.findSearchPlatforms(query, commandPlatforms).map(platform => ({ type: 'platform', title: platform.name, platform }))];
+  for (const key of commandSearchItems.keys()) if (key.startsWith('platform:')) commandSearchItems.delete(key);
+  results.forEach((item, index) => {
+    if (item.type === 'platform') { item.id = `platform:${index}`; commandSearchItems.set(item.id, item); }
+    if (item.type === 'open') item.subtitle = `${item.url} · ${t('search.window', { n: item.windowId })}${item.duplicateCount > 1 ? ` · ${item.duplicateCount}×` : ''}`;
+    if (item.type === 'platform') item.subtitle = item.url ? `${t('search.searchPlatform')} · ${new URL(item.url).host} · ${item.query}` : `${item.platform.domain} · ${t('search.enterQuery')}`;
+  });
   const container = document.getElementById('commandResults');
   const empty = document.getElementById('commandEmpty');
   commandSelectedIndex = 0;
@@ -796,7 +817,7 @@ function renderCommandResults(query) {
           : '';
     return `<div class="command-result-row"><button class="command-result ${index === 0 ? 'selected' : ''}" data-action="open-search-result" data-search-id="${escapeHtml(item.id)}">
       <span class="command-result-main"><span class="command-result-title">${escapeHtml(item.title)}</span><span class="command-result-subtitle">${escapeHtml(item.subtitle || item.url || '')}</span></span>
-      <span class="command-result-type">${escapeHtml(searchTypeLabel(item.type))}</span>
+      <span class="command-result-type">${escapeHtml(item.type === 'open' ? t('search.switch') : item.type === 'platform' ? t('search.searchPlatform') : searchTypeLabel(item.type))}</span>
     </button>${contextAction}</div>`;
   }).join('');
   container.style.display = results.length ? 'block' : 'none';
@@ -804,15 +825,22 @@ function renderCommandResults(query) {
   empty.textContent = query.trim() ? t('search.noResults') : t('search.commandEmpty');
 }
 
-async function openCommandPalette() {
-  if (!await entitlementService.has('search.advanced')) { showToast(t('upgrade.proRequired')); return; }
-  await buildCommandSearchIndex();
+async function openCommandPalette(query = '') {
   const overlay = document.getElementById('commandOverlay');
   const input = document.getElementById('commandInput');
   overlay.style.display = 'flex';
-  input.value = '';
-  renderCommandResults('');
+  input.value = query;
   input.focus();
+  document.getElementById('commandEmpty').textContent = t('search.loading');
+  try {
+    await buildCommandSearchIndex();
+    renderCommandResults(input.value);
+  } catch {
+    commandSearchIndex = null;
+    commandSearchItems = new Map();
+    renderCommandResults('');
+    document.getElementById('commandEmpty').textContent = t('search.failed');
+  }
 }
 
 function closeCommandPalette() {
@@ -1689,6 +1717,9 @@ async function renderDashboard() {
   document.getElementById('createTemplateBtn').textContent = t('workspaces.fromTemplate');
   document.getElementById('commandInput').placeholder = t('search.commandPlaceholder');
   document.getElementById('searchOpenBtn').textContent = t('search.open');
+  document.getElementById('platformSettingsBtn').textContent = t('search.platformSettings');
+  document.getElementById('commandHint').textContent = t('search.hint');
+  document.getElementById('commandInput').setAttribute('aria-label', t('search.open'));
   document.getElementById('cleanupOpenBtn').textContent = t('cleanup.open');
   document.getElementById('cleanupTitle').textContent = t('cleanup.title');
   document.getElementById('cleanupSubtitle').textContent = t('cleanup.subtitle');
@@ -1756,6 +1787,12 @@ async function renderDashboard() {
     document.getElementById('restoreWarning').style.display = 'none';
     document.getElementById('restoreOverlay').style.display = 'flex';
   }
+  if (location.hash.startsWith('#search=')) {
+    const params = new URLSearchParams(location.hash.slice(1));
+    history.replaceState(null, '', location.pathname);
+    await openCommandPalette(params.get('search') || '');
+    if (params.get('error')) showToast(t(params.get('error') === 'search.stale' ? 'search.stale' : 'search.failed'));
+  }
   const { openCommandOnLoad = false } = await chrome.storage.local.get('openCommandOnLoad');
   if (openCommandOnLoad) {
     await chrome.storage.local.set({ openCommandOnLoad: false });
@@ -1779,6 +1816,7 @@ document.addEventListener('click', async (e) => {
 
   const action = actionEl.dataset.action;
 
+  if (action === 'open-platform-settings') { closeCommandPalette(); TabOutCore.openSearchPlatformSettings(); return; }
   if (action === 'open-command') {
     await openCommandPalette();
     return;
@@ -1821,17 +1859,23 @@ document.addEventListener('click', async (e) => {
     const item = commandSearchItems.get(actionEl.dataset.searchId);
     if (!item) return;
     telemetry.record('search_completed', { source_filters: item.type || 'unknown', result_bucket: 'selected', action_type: 'open' }).catch(() => {});
-    closeCommandPalette();
-    if (item.url) {
-      const allTabs = await chrome.tabs.query({});
-      const existing = allTabs.find(tab => tab.url === item.url);
-      if (existing) {
-        await chrome.windows.update(existing.windowId, { focused: true });
-        await chrome.tabs.update(existing.id, { active: true });
-      } else await chrome.tabs.create({ url: item.url });
-    } else if (item.workspaceId) {
-      await renderWorkspaces();
-      document.getElementById('workspacesOverlay').style.display = 'flex';
+    if (item.type === 'platform' && !item.url) {
+      const input = document.getElementById('commandInput');
+      input.value = `${item.platform.name} `;
+      renderCommandResults(input.value);
+      input.focus();
+      return;
+    }
+    try {
+      if (item.url) await TabOutCore.activateSearchResult(item, chrome);
+      else if (item.workspaceId) {
+        await renderWorkspaces();
+        document.getElementById('workspacesOverlay').style.display = 'flex';
+      }
+      closeCommandPalette();
+    } catch (error) {
+      showToast(t(error.message === 'search.stale' ? 'search.stale' : 'search.failed'));
+      await openCommandPalette(document.getElementById('commandInput').value);
     }
     return;
   }
@@ -3226,6 +3270,7 @@ document.getElementById('dialogName')?.addEventListener('keydown', (e) => {
 
 // Escape key → close dialog or context menu
 document.addEventListener('keydown', (e) => {
+  if (e.isComposing || e.keyCode === 229) return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
     e.preventDefault();
     openCommandPalette();
@@ -3291,3 +3336,17 @@ chrome.runtime.onMessage.addListener(message => {
 });
 initShortcuts();
 renderDashboard();
+
+let commandRefreshTimer;
+function refreshVisibleCommandSearch() {
+  clearTimeout(commandRefreshTimer);
+  commandRefreshTimer = setTimeout(() => {
+    if (document.getElementById('commandOverlay').style.display === 'none') return;
+    buildCommandSearchIndex().then(() => renderCommandResults(document.getElementById('commandInput').value))
+      .catch(() => showToast(t('search.failed')));
+  }, 120);
+}
+chrome.tabs.onCreated.addListener(refreshVisibleCommandSearch);
+chrome.tabs.onRemoved.addListener(refreshVisibleCommandSearch);
+chrome.tabs.onUpdated.addListener(refreshVisibleCommandSearch);
+chrome.storage.onChanged.addListener(refreshVisibleCommandSearch);
