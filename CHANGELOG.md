@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — 2026-09-14
+## 2.1.0 — 2026-09-15
 
 - Made dashboard and omnibox open-tab search available on Free, retaining Pro gates for advanced saved assets.
 - Added configurable website names and aliases, encoded `{Query}` templates, direct platform search, and explicit test search.

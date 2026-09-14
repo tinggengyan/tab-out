@@ -1,12 +1,12 @@
 # Implementation status
 
-Updated: 2026-09-14
+Updated: 2026-09-15
 
-## Unified search development increment
+## Unified search — 2.1.0
 
 Implemented free open-tab search in the dashboard and omnibox, exact tab identity across duplicate URLs/windows, configurable platform names and aliases, direct encoded website search, local platform settings with import/export, and full-backup integration. Advanced saved-asset search remains gated. No new extension permissions or runtime dependencies were introduced.
 
-The full Node suite now passes 163 tests. Validation includes unit tests for parsing, invalid templates, normalization, concurrent settings edits, stale tabs, IME submission, omnibox handlers and backup compatibility. The isolated Chrome runner additionally covers Free search, settings persistence, alias commands, encoded queries, selected duplicate activation and full platform backup restoration. Native desktop automation failed to initialize during this increment; actual `to` keyword activation using native address-bar keystrokes is not claimed as verified.
+The full Node suite now passes 163 tests. Validation includes unit tests for parsing, invalid templates, normalization, concurrent settings edits, stale tabs, IME submission, omnibox handlers and backup compatibility. The isolated Chrome runner additionally covers Free search, settings persistence, alias commands, encoded queries, selected duplicate activation and full platform backup restoration. Native desktop automation was unavailable during development; the user subsequently confirmed acceptance including actual `to` usage. Version 2.1.0 packages this increment.
 
 ## Delivered in this repository
 

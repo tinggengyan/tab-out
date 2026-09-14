@@ -88,7 +88,7 @@ Everything runs inside the Chrome extension. Browsing assets are stored in `chro
 
 ## Development
 
-### Unified search (local development build)
+### Unified search
 
 Open **Search** on the dashboard (or press Cmd/Ctrl+K there). Basic open-tab and website search is available on Free. Enter words to find open tabs, then choose a result to switch to that exact tab across windows. Duplicate URLs show a count; they are never automatically closed.
 
@@ -96,7 +96,7 @@ Choose **Search websites** to add a platform's name, optional aliases, domain, a
 
 In Chrome's address bar, enter `to`, activate the extension keyword mode, then enter your query. Selecting an open-tab suggestion switches to that tab. Submitting ordinary words without selecting a suggestion opens the dashboard with those words; a platform command opens a new search. After updating this unpacked build, **reload Tab Out in `chrome://extensions` and refresh the dashboard** so both the service worker and page receive the change.
 
-Platform settings are stored locally, support JSON import/export with conflict preview, and are included in full backups. Queries are sent only to the selected website when you explicitly search. Advanced workspace/history search retains its existing Pro gate. Native address-bar keyword activation may need a manual check on your Chrome installation; automated tests cover the extension handlers and isolated dashboard flows.
+Platform settings are stored locally, support JSON import/export with conflict preview, and are included in full backups. Queries are sent only to the selected website when you explicitly search. Advanced workspace/history search retains its existing Pro gate. Native address-bar keyword activation was confirmed by the user during acceptance; automated tests cover the extension handlers and isolated dashboard flows.
 
 ### Verification
 
