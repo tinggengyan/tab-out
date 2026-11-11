@@ -1924,6 +1924,7 @@ const search = {
   open: false,
   loaded: false,
   granted: false,
+  fileAccess: false,     // "Allow access to file URLs": only then can file: results be opened
   sources: { tabs: [], saved: [], stash: [], bookmarks: null, history: null },
   recentHistory: [],
   currentWindowId: null,
@@ -1956,13 +1957,15 @@ async function loadGrantedSources() {
 }
 
 async function loadSearchSources() {
-  const [tabs, current, saved, stash, granted] = await Promise.all([
+  const [tabs, current, saved, stash, granted, fileAccess] = await Promise.all([
     chrome.tabs.query({}),
     chrome.windows.getCurrent(),
     getSavedTabs(),
     collectedStore.list(),
     chrome.permissions.contains(SEARCH_PERMISSIONS),
+    chrome.extension.isAllowedFileSchemeAccess(),
   ]);
+  search.fileAccess = fileAccess;
   search.currentWindowId = current.id;
   search.sources.tabs = tabs
     .map(tab => ({ id: tab.id, windowId: tab.windowId, url: tab.url || tab.pendingUrl, title: tab.title }))
@@ -2056,11 +2059,15 @@ function selectSearchRow(index) {
 function renderSearch() {
   const input = searchEl('searchInput');
   const query = input.value.trim();
-  const { tokens, groups } = searchAll({ query, ...search.sources });
+  // Until this opening's sources have loaded, offer nothing rather than the previous opening's.
+  const { tokens, groups } = search.loaded
+    ? searchAll({ query, ...search.sources, fileAccess: search.fileAccess })
+    : { tokens: [], groups: [] };
   const scope = t(search.granted ? 'search.scopeAll' : 'search.scopeBase');
   input.placeholder = t(search.granted ? 'search.placeholderAll' : 'search.placeholder');
 
-  searchEl('searchMessage').innerHTML = !tokens.length ? escapeHtml(t('search.hint'))
+  searchEl('searchMessage').innerHTML = !search.loaded ? ''
+    : !tokens.length ? escapeHtml(t('search.hint'))
     : groups.length ? ''
     : `<div class="search-none"><b>${escapeHtml(t('search.none', { q: query }))}</b><span>${escapeHtml(t('search.noneHint', { scope }))}</span></div>`;
 
@@ -2164,8 +2171,9 @@ async function activateSearchRow(index) {
   closeSearch();
   try {
     if (item.kind === 'tab') {
-      await chrome.tabs.update(item.id, { active: true });
-      await chrome.windows.update(item.windowId, { focused: true });
+      // Raise the window the tab is in now; it may have moved since the overlay opened.
+      const tab = await chrome.tabs.update(item.id, { active: true });
+      await chrome.windows.update(tab.windowId, { focused: true });
     } else if (item.kind === 'saved') {
       await chrome.tabs.create({ url: item.url, active: true });
     } else if (item.kind === 'stashPage') {
@@ -2233,8 +2241,13 @@ document.addEventListener('keydown', e => {
   }
 }, true);
 
+// Only a press and a release both on the dimmed page close the overlay; a drag
+// that starts in the box (selecting text) and ends outside it does not.
+let searchPressedOutside = false;
+searchEl('searchOverlay').addEventListener('mousedown', e => { searchPressedOutside = e.target === e.currentTarget; });
 searchEl('searchOverlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeSearch();
+  if (searchPressedOutside && e.target === e.currentTarget) closeSearch();
+  searchPressedOutside = false;
 });
 
 // A click anywhere in the panel but the box and the grant button keeps the keyboard in the box.

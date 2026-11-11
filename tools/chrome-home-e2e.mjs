@@ -457,6 +457,51 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#searchResults [data-search-kind]').length`), 0);
   await key('Escape', 'Escape', 27);
   await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
+
+  // a drag that starts in the box and ends on the dimmed page keeps the overlay; a click there closes it
+  await openByButton();
+  const box = await evaluate(`(() => { const r = document.getElementById('searchInput').getBoundingClientRect(); return { x: r.x + 20, y: r.y + r.height / 2 }; })()`);
+  const backdrop = { x: 30, y: 880 };
+  assert.equal(await evaluate(`document.elementFromPoint(${backdrop.x}, ${backdrop.y})?.id`), 'searchOverlay');
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...box, button: 'left', clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...backdrop, button: 'left' });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...backdrop, button: 'left', clickCount: 1 });
+  await pause(200);
+  assert.equal(await evaluate(`document.getElementById('searchOverlay').hidden`), false, 'a drag out of the box keeps the overlay open');
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', ...backdrop, button: 'left', clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...backdrop, button: 'left', clickCount: 1 });
+  await waitFor(`document.getElementById('searchOverlay').hidden`, 'a click on the dimmed page closes the overlay');
+
+  // a tab moved to another window after the overlay opened: Enter still switches to it, with no error
+  const wanderUrl = url('wander', 'tab');
+  const firstWindow = await evaluate(`chrome.windows.create({ url: ${JSON.stringify(wanderUrl)}, focused: false }).then(win => win.id)`);
+  await waitForSite('wander', 1);
+  await openByButton();
+  await typeQuery('wander');
+  await waitFor(`document.querySelector('#searchResults [data-search-kind]')?.dataset.searchKind === 'tab'`, 'the tab to move');
+  const wanderId = await evaluate(`chrome.tabs.query({}).then(tabs => tabs.find(tab => (tab.url || tab.pendingUrl) === ${JSON.stringify(wanderUrl)}).id)`);
+  await evaluate(`chrome.windows.create({ tabId: ${wanderId}, focused: false })`);
+  await waitFor(`chrome.windows.getAll().then(all => !all.some(win => win.id === ${firstWindow}))`, 'its first window closes with its last tab');
+  await evaluate(`document.getElementById('toast').classList.remove('visible')`);
+  await key('Enter', 'Enter', 13);
+  await waitFor(`chrome.tabs.get(${wanderId}).then(tab => tab.active)`, 'Enter switches to the moved tab');
+  await pause(300);
+  assert.equal(await evaluate(`document.getElementById('toast').classList.contains('visible')`), false, 'no "could not open" after switching to a moved tab');
+
+  // while the overlay is still loading, nothing from the previous opening is offered
+  await evaluate(`(() => { const original = chrome.permissions.contains.bind(chrome.permissions);
+    globalThis.__restoreContains = () => Object.defineProperty(chrome.permissions, 'contains', { configurable: true, writable: true, value: original });
+    Object.defineProperty(chrome.permissions, 'contains', { configurable: true, writable: true,
+      value: (...args) => new Promise(resolve => setTimeout(() => resolve(original(...args)), 1500)) }); })()`);
+  await click('#searchTrigger');
+  await waitFor(overlayOpen, 'overlay open while its sources load');
+  await send('Input.insertText', { text: 'quokka' });
+  await pause(300);
+  assert.equal(await evaluate(`document.querySelectorAll('#searchResults [data-search-kind]').length`), 0, 'nothing from the previous opening while loading');
+  await waitFor(`document.querySelectorAll('#searchResults [data-search-kind]').length > 0`, 'results once loaded', 5000);
+  await evaluate(`globalThis.__restoreContains()`);
+  await key('Escape', 'Escape', 27);
+  await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
   const outside = requests.filter(request => !/^(chrome-extension|data):/.test(request));
   assert.deepEqual(outside, [], 'search loaded nothing from the network');
   pass('16 search finds open tabs, saved for later and the stash; Enter acts on the result');

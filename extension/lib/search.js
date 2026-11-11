@@ -5,7 +5,9 @@
    later, stash, bookmarks, history. Bookmarks and history are null
    until the user grants them, and then their group is left out.
    A result matches when every word of the query appears in its title
-   or address. Everything here is pure, so it runs under node --test.
+   or address. Bookmarks and history keep only web addresses, plus file:
+   ones when Chrome lets the extension open them ("Allow access to file
+   URLs"). Everything here is pure, so it runs under node --test.
    ================================================================ */
 (function initSearch(globalScope) {
   'use strict';
@@ -15,7 +17,8 @@
     : globalScope.TabOutLib;
 
   // Bookmarklets (javascript:), data: and extension pages never become results.
-  const OPENABLE = /^(https?|file):/i;
+  const WEB = /^https?:/i;
+  const WEB_OR_FILE = /^(https?|file):/i;
 
   function tokenize(query) {
     return String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean);
@@ -26,10 +29,11 @@
     return tokens.every(token => text.includes(token));
   }
 
-  function searchAll({ query, tabs = [], saved = [], stash = [], bookmarks = null, history = null }) {
+  function searchAll({ query, tabs = [], saved = [], stash = [], bookmarks = null, history = null, fileAccess = false }) {
     const tokens = tokenize(query);
     if (!tokens.length) return { tokens, groups: [] };
     const hit = item => matches(tokens, item.title, item.url);
+    const openable = item => (fileAccess ? WEB_OR_FILE : WEB).test(item.url || '');
 
     const groups = [
       { key: 'tabs', items: tabs.filter(hit)
@@ -49,14 +53,14 @@
     ];
 
     if (bookmarks) {
-      groups.push({ key: 'bookmarks', items: bookmarks.filter(item => OPENABLE.test(item.url || '') && hit(item))
+      groups.push({ key: 'bookmarks', items: bookmarks.filter(item => openable(item) && hit(item))
         .map(({ id, url, title, path }) => ({ kind: 'bookmark', id, url, title, path })) });
     }
     if (history) {
       const shown = new Set(groups.flatMap(group => group.items.map(item => item.url)).filter(Boolean));
       const items = [];
       for (const item of [...history].sort((a, b) => (b.lastVisitTime || 0) - (a.lastVisitTime || 0))) {
-        if (!OPENABLE.test(item.url || '') || shown.has(item.url) || !hit(item)) continue;
+        if (!openable(item) || shown.has(item.url) || !hit(item)) continue;
         shown.add(item.url);
         items.push({ kind: 'history', url: item.url, title: item.title, lastVisitTime: item.lastVisitTime });
       }

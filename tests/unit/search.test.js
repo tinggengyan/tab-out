@@ -80,7 +80,7 @@ test('a record name finds the record; its pages are found by their own title or 
   ]);
 });
 
-test('bookmarks and history keep only http, https and file addresses', () => {
+test('bookmarks and history keep only http and https addresses unless file access is allowed', () => {
   const result = searchAll({
     query: 'tool',
     bookmarks: [
@@ -94,8 +94,16 @@ test('bookmarks and history keep only http, https and file addresses', () => {
       { url: 'http://tool.test/old', title: 'tool old', lastVisitTime: 1 },
     ],
   });
-  assert.deepEqual(items(result, 'bookmarks').map(item => item.id), ['b2', 'b3']);
+  assert.deepEqual(items(result, 'bookmarks').map(item => item.id), ['b2']);
   assert.deepEqual(items(result, 'history').map(item => item.url), ['http://tool.test/old']);
+});
+
+test('file addresses are kept when Chrome lets Tab Out open them', () => {
+  const bookmarks = [{ id: 'b3', url: 'file:///Users/me/tool.html', title: 'tool file', path: [] }];
+  const history = [{ url: 'file:///Users/me/notes.html', title: 'tool notes', lastVisitTime: 1 }];
+  const result = searchAll({ query: 'tool', bookmarks, history, fileAccess: true });
+  assert.deepEqual(items(result, 'bookmarks').map(item => item.id), ['b3']);
+  assert.deepEqual(items(result, 'history').map(item => item.url), ['file:///Users/me/notes.html']);
 });
 
 test('history drops pages shown in an earlier group, repeats, and sorts newest first', () => {

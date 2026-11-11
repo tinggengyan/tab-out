@@ -73,6 +73,7 @@ try {
     const folder = await chrome.bookmarks.create({ parentId: bar.id, title: 'Animals' });
     await chrome.bookmarks.create({ parentId: folder.id, title: 'Quokka bookmark', url: ${JSON.stringify(url('mark', 'quokka'))} });
     await chrome.bookmarks.create({ parentId: bar.id, title: 'quokka bookmarklet', url: 'javascript:alert(1)' });
+    await chrome.bookmarks.create({ parentId: bar.id, title: 'Quokka local file', url: 'file:///tmp/quokka.html' });
     return bar.title;
   })()`);
   await send('Page.reload');
@@ -94,7 +95,9 @@ try {
   const bookmarks = await groupText('bookmarks');
   assert.ok(bookmarks.includes('Quokka bookmark') && bookmarks.includes(`${barTitle} › Animals`), `bookmark with its folder: ${bookmarks}`);
   assert.ok(!bookmarks.includes('bookmarklet'), 'javascript: bookmarks are left out');
-  pass('2 bookmarks show their folder; bookmarklets are left out');
+  const fileAccess = await evaluate(`chrome.extension.isAllowedFileSchemeAccess()`);
+  assert.equal(bookmarks.includes('Quokka local file'), fileAccess, `file: bookmarks appear only when Chrome lets Tab Out open them (file access ${fileAccess})`);
+  pass(`2 bookmarks show their folder; bookmarklets are left out; file: only with file access (${fileAccess})`);
 
   // 3. history leaves out the page that is already open and lists the newest visit first
   const historyRows = await evaluate(`[...document.querySelectorAll('[data-search-group="history"] [data-search-kind="history"]')].map(row => row.querySelector('.search-title').textContent)`);
