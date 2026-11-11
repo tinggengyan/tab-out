@@ -1,0 +1,31 @@
+extension/app.js
+  s_9aee2ef0d3813f::t_c2d154db0610b2 18-19,49,51,728,753-755,758-766,768,776-786,848,874,958,960,963-964,966-967,970,974,989-990,1033-1036,1522-1528,1534-1535,1542-1543,1567,1634,1637,1639,1641,1648-1651
+extension/index.html
+  s_9aee2ef0d3813f::t_cdee8a9a979670 169-172
+extension/lib/grouping.js
+  s_9aee2ef0d3813f::t_534a728b0b1f14 1-130
+extension/lib/sanitize.js
+  s_9aee2ef0d3813f::t_f2556bb18442a1 1-34
+tests/integration/static-contract.test.js
+  s_9aee2ef0d3813f::t_12e6711e3e3fde 44-45,53-61
+tests/unit/grouping.test.js
+  s_9aee2ef0d3813f::t_80233c21246957 1-75
+tests/unit/sanitize.test.js
+  s_9aee2ef0d3813f::t_1c55cc35de9aed 1-19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e886806fc0fbd8f744d9193101157becc6040f21",
+  "prompts": {},
+  "sessions": {
+    "s_9aee2ef0d3813f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_9aee2ef0d3813f",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
