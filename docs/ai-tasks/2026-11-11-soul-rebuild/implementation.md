@@ -2,7 +2,7 @@
 
 - 日期：2026-11-11
 - 实施者：Claude（按 [plan.md](./plan.md) 在会话内逐项执行）
-- 分支：`rebuild/soul`，起点为归档提交 `cd4289f`（标签 `v2.3-workbench-archive`）。未合入 `main`，未推送。
+- 分支：`rebuild/soul`，起点为归档提交 `cd4289f`（标签 `v2.3-workbench-archive`）。2026-11-11 快进合入本地 `main` 后删除该分支；未推送到远端。
 
 ## 结果
 
