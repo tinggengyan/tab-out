@@ -651,6 +651,7 @@ const ICONS = {
   tabs:    `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8.25V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18V8.25m-18 0V6a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 6v2.25m-18 0h18" /></svg>`,
   close:   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>`,
   archive: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m6 4.125l2.25 2.25m0 0l2.25 2.25M12 13.875l2.25-2.25M12 13.875l-2.25 2.25M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>`,
+  stash:   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>`,
   focus:   `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 19.5 15-15m0 0H8.25m11.25 0v11.25" /></svg>`,
 };
 
@@ -708,7 +709,7 @@ function renderPageChip(tab, label, count) {
   const safeUrl   = escapeHtml(tab.url || '');
   const safeLabel = escapeHtml(label);
   const icon      = tab.url ? escapeHtml(faviconUrl(tab.url, chrome.runtime.id)) : '';
-  return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeLabel}">
+  return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeLabel}" tabindex="0">
       ${icon ? `<img class="chip-favicon" src="${icon}" alt="">` : ''}
       <span class="chip-text">${safeLabel}</span>${dupeTag}
       <div class="chip-actions">
@@ -756,6 +757,7 @@ function renderDomainCard(group) {
   const tabCount  = tabs.length;
   const isLanding = group.domain === '__landing-pages__';
   const stableId  = 'domain-' + group.domain.replace(/[^a-z0-9]/g, '-');
+  const siteName  = escapeHtml(isLanding ? t('label.homepages') : (group.label || friendlyDomain(group.domain)));
 
   // Count duplicates (exact URL match)
   const urlCounts = {};
@@ -764,15 +766,12 @@ function renderDomainCard(group) {
   const totalExtras = duplicateTabIds(tabs).length;
   const hasDupes    = totalExtras > 0;
 
-  const tabBadge = `<span class="open-tabs-badge">
-    ${ICONS.tabs}
-    ${tPlural('label.tabOpen', 'label.tabsOpen', tabCount)}
-  </span>`;
+  // Just the number next to the site name; the full wording is the tooltip.
+  const tabCountLabel = escapeHtml(tPlural('label.tabOpen', 'label.tabsOpen', tabCount));
+  const tabBadge = `<span class="open-tabs-badge" title="${tabCountLabel}" aria-label="${tabCountLabel}">${ICONS.tabs}${tabCount}</span>`;
 
   const dupeBadge = hasDupes
-    ? `<span class="open-tabs-badge" style="color:var(--accent-amber);background:rgba(200,113,58,0.08);">
-        ${tPlural('label.duplicate', 'label.duplicates', totalExtras)}
-      </span>`
+    ? `<span class="open-tabs-badge dupe-count-badge">${tPlural('label.duplicate', 'label.duplicates', totalExtras)}</span>`
     : '';
 
   // Deduplicate for display: show each URL once, with (Nx) badge if duped
@@ -795,21 +794,21 @@ function renderDomainCard(group) {
     return renderPageChip(tab, label, urlCounts[tab.url]);
   }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(8), urlCounts) : '');
 
-  let actionsHtml = `
-    <button class="action-btn close-tabs" data-action="close-domain-tabs" data-domain-id="${stableId}">
-      ${ICONS.close}
-      ${tPlural('btn.closeAll', 'btn.closeAllPlural', tabCount)}
-    </button>
-    <button class="collect-btn" data-action="collect-domain-tabs" data-domain-id="${stableId}">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>
-      ${t('tabGroups.collectAll')}
-    </button>`;
+  // One row of buttons. When the card is too narrow, fitCardActions()
+  // switches to the short labels; the full text stays in title/aria-label.
+  let actionsHtml = cardActionButton({
+    action: 'close-domain-tabs', domainId: stableId, className: 'close-tabs', icon: ICONS.close,
+    full: tPlural('btn.closeAll', 'btn.closeAllPlural', tabCount), short: t('btn.closeAllShort', { n: tabCount }),
+  }) + cardActionButton({
+    action: 'collect-domain-tabs', domainId: stableId, className: 'collect', icon: ICONS.stash,
+    full: t('btn.collect'), short: t('btn.collect'),
+  });
 
   if (hasDupes) {
-    actionsHtml += `
-      <button class="action-btn" data-action="dedup-keep-one" data-domain-id="${stableId}">
-        ${tPlural('btn.closeDupe', 'btn.closeDupePlural', totalExtras)}
-      </button>`;
+    actionsHtml += cardActionButton({
+      action: 'dedup-keep-one', domainId: stableId, className: 'dedup-btn', icon: '',
+      full: tPlural('btn.closeDupe', 'btn.closeDupePlural', totalExtras), short: t('btn.dedupShort', { n: totalExtras }),
+    });
   }
 
   return `
@@ -817,18 +816,28 @@ function renderDomainCard(group) {
       <div class="status-bar"></div>
       <div class="mission-content">
         <div class="mission-top">
-          <span class="mission-name">${escapeHtml(isLanding ? t('label.homepages') : (group.label || friendlyDomain(group.domain)))}</span>
+          <span class="mission-name" title="${siteName}">${siteName}</span>
           ${tabBadge}
           ${dupeBadge}
         </div>
         <div class="mission-pages">${pageChips}</div>
         <div class="actions">${actionsHtml}</div>
       </div>
-      <div class="mission-meta">
-        <div class="mission-page-count">${tabCount}</div>
-        <div class="mission-page-label">tabs</div>
-      </div>
     </div>`;
+}
+
+function cardActionButton({ action, domainId, className, icon, full, short }) {
+  const label = escapeHtml(full);
+  return `<button class="action-btn ${className}" data-action="${action}" data-domain-id="${domainId}" title="${label}" aria-label="${label}">${icon}<span class="label-full">${label}</span><span class="label-short">${escapeHtml(short)}</span></button>`;
+}
+
+// Use short button labels on every card as soon as any card's full labels
+// would not fit on one row, so all cards read the same way.
+function fitCardActions() {
+  const rows = [...document.querySelectorAll('#openTabsMissions .actions')];
+  rows.forEach(row => row.classList.remove('compact'));
+  const overflowing = rows.some(row => row.scrollWidth > row.clientWidth + 1);
+  rows.forEach(row => row.classList.toggle('compact', overflowing));
 }
 
 
@@ -843,7 +852,7 @@ function renderDomainCard(group) {
  * "Saved for Later" checklist column. Shows active items as a checklist
  * and completed items in a collapsible archive.
  */
-async function renderDeferredColumn() {
+async function renderDeferredColumnInner() {
   const column         = document.getElementById('deferredColumn');
   const list           = document.getElementById('deferredList');
   const empty          = document.getElementById('deferredEmpty');
@@ -890,6 +899,11 @@ async function renderDeferredColumn() {
     console.warn('[tab-out] Could not load saved tabs:', err);
     column.style.display = 'none';
   }
+}
+
+async function renderDeferredColumn() {
+  await renderDeferredColumnInner();
+  updateSideColumn();
 }
 
 /**
@@ -991,12 +1005,14 @@ async function renderStaticDashboard() {
   if (domainGroups.length > 0 && openTabsSection) {
     if (openTabsSectionTitle) openTabsSectionTitle.textContent = t('section.openTabs');
     const extraCopies = duplicateTabIds(realTabs).length;
-    const dedupAllBtn = extraCopies > 0
-      ? `<button class="action-btn dedup-btn" data-action="dedup-all">${t('btn.dedupAll', { n: extraCopies })}</button> `
-      : '';
-    openTabsSectionCount.innerHTML = `${tPlural('label.domain', 'label.domains', domainGroups.length)} &nbsp;&middot;&nbsp; ${dedupAllBtn}<button class="collect-btn" data-action="collect-all-tabs"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg> ${t('tabGroups.collectAll')}</button> <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} ${tPlural('btn.closeAll', 'btn.closeAllPlural', realTabs.length)}</button>`;
+    const summary = `${tPlural('label.tab', 'label.tabs', realTabs.length)} · ${tPlural('label.domain', 'label.domains', domainGroups.length)}`;
+    openTabsSectionCount.innerHTML = `<span class="section-summary">${escapeHtml(summary)}</span>`
+      + (extraCopies > 0 ? `<button class="action-btn dedup-btn" data-action="dedup-all">${escapeHtml(t('btn.dedupAll', { n: extraCopies }))}</button>` : '')
+      + `<button class="action-btn collect" data-action="collect-all-tabs">${ICONS.stash}${escapeHtml(t('tabGroups.collectAll'))}</button>`
+      + `<button class="action-btn close-tabs" data-action="close-all-open-tabs">${ICONS.close}${escapeHtml(t('btn.closeEverything'))}</button>`;
     openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
+    fitCardActions();
   } else if (openTabsSection) {
     openTabsSection.style.display = 'none';
   }
@@ -1018,6 +1034,15 @@ async function renderStaticDashboard() {
 
 async function renderDashboard() {
   await renderStaticDashboard();
+}
+
+// The right column (stash + save-for-later) disappears when both are empty.
+function updateSideColumn() {
+  const side = document.getElementById('sideColumn');
+  if (!side) return;
+  const visible = ['tabGroupsColumn', 'deferredColumn']
+    .some(id => document.getElementById(id)?.style.display === 'block');
+  side.hidden = !visible;
 }
 
 
@@ -1395,7 +1420,7 @@ async function restoreSingleGroupTab(groupId, tabIdx) {
   await renderDashboard();
 }
 
-async function renderTabGroups() {
+async function renderTabGroupsInner() {
   const column   = document.getElementById('tabGroupsColumn');
   const listEl   = document.getElementById('tabGroupsList');
   const emptyEl  = document.getElementById('tabGroupsEmpty');
@@ -1459,6 +1484,11 @@ async function renderTabGroups() {
   listEl.querySelectorAll('.tab-group-tab-favicon').forEach(img => {
     img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
   });
+}
+
+async function renderTabGroups() {
+  await renderTabGroupsInner();
+  updateSideColumn();
 }
 
 // ---- Stash event handlers ----
@@ -1766,6 +1796,20 @@ document.addEventListener('keydown', (e) => {
     hideCtxMenu();
   }
 });
+
+
+// Enter on a focused tab row jumps to that tab, like a click.
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || !e.target.matches?.('.page-chip[data-action="focus-tab"]')) return;
+  e.target.click();
+});
+
+// Re-fit card buttons when the grid resizes or the bundled fonts finish loading.
+if (typeof ResizeObserver !== 'undefined') {
+  const missionsEl = document.getElementById('openTabsMissions');
+  if (missionsEl) new ResizeObserver(() => fitCardActions()).observe(missionsEl);
+}
+document.fonts?.ready.then(() => fitCardActions());
 
 
 /* ----------------------------------------------------------------
