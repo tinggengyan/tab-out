@@ -41,12 +41,21 @@ test('every literal getElementById in app.js resolves to static markup', () => {
 
 const EXTERNAL_RESOURCE = /<script[^>]+src=["']https?:|<link[^>]+href=["']https?:|@import\s+url\(["']?https?:|url\(["']?https?:|s2\/favicons/;
 
-test('page markup and styles reference no external resources', () => {
-  for (const file of ['index.html', 'style.css']) {
+test('page markup, styles and scripts reference no external resources', () => {
+  for (const file of ['index.html', 'style.css', 'app.js', 'i18n.js']) {
     assert.doesNotMatch(read(file), EXTERNAL_RESOURCE, `${file} loads an external resource`);
   }
 });
 
 test('page markup has no inline event handler attributes', () => {
   assert.doesNotMatch(html, /\son[a-z]+=["']/i);
+});
+
+test('the page loads the lib modules before app.js', () => {
+  const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
+  const app = scripts.indexOf('app.js');
+  for (const lib of ['lib/sanitize.js', 'lib/grouping.js']) {
+    assert.ok(scripts.includes(lib), `${lib} is not loaded`);
+    assert.ok(scripts.indexOf(lib) < app, `${lib} must load before app.js`);
+  }
 });

@@ -15,6 +15,8 @@
 
 'use strict';
 
+const { escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl } = TabOutLib;
+
 
 /* ----------------------------------------------------------------
    CHROME TABS — Direct API Access
@@ -44,7 +46,9 @@ async function fetchOpenTabs() {
       url:      t.url,
       title:    t.title,
       windowId: t.windowId,
+      index:    t.index,
       active:   t.active,
+      pinned:   t.pinned,
       // Flag Tab Out's own pages so we can detect duplicate new tabs
       isTabOut: t.url === newtabUrl || t.url === 'chrome://newtab/',
     }));
@@ -721,16 +725,7 @@ let domainGroups = [];
  * pages, about:blank, etc.
  */
 function getRealTabs() {
-  return openTabs.filter(t => {
-    const url = t.url || '';
-    return (
-      !url.startsWith('chrome://') &&
-      !url.startsWith('chrome-extension://') &&
-      !url.startsWith('about:') &&
-      !url.startsWith('edge://') &&
-      !url.startsWith('brave://')
-    );
-  });
+  return openTabs.filter(t => isRealTabUrl(t.url));
 }
 
 /**
@@ -755,25 +750,22 @@ function checkTabOutDupes() {
 
 
 /* ----------------------------------------------------------------
-   OVERFLOW CHIPS ("+N more" expand button in domain cards)
+   PAGE CHIP — one tab row inside a domain card
+   Title and URL are escaped; the favicon comes from Chrome's local
+   _favicon endpoint so no request leaves the browser.
    ---------------------------------------------------------------- */
 
-function buildOverflowChips(hiddenTabs, urlCounts = {}) {
-  const hiddenChips = hiddenTabs.map(tab => {
-    const label    = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), '');
-    const count    = urlCounts[tab.url] || 1;
-    const dupeTag  = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
-    const chipClass = count > 1 ? ' chip-has-dupes' : '';
-    const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
-    const safeTitle = label.replace(/"/g, '&quot;');
-    let domain = '';
-    try { domain = new URL(tab.url).hostname; } catch {}
-    const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
-      ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="">` : ''}
-      <span class="chip-text">${label}</span>${dupeTag}
+function renderPageChip(tab, label, count) {
+  const dupeTag   = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
+  const chipClass = count > 1 ? ' chip-has-dupes' : '';
+  const safeUrl   = escapeHtml(tab.url || '');
+  const safeLabel = escapeHtml(label);
+  const icon      = tab.url ? escapeHtml(faviconUrl(tab.url, chrome.runtime.id)) : '';
+  return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeLabel}">
+      ${icon ? `<img class="chip-favicon" src="${icon}" alt="">` : ''}
+      <span class="chip-text">${safeLabel}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="${t('btn.saveForLater')}">
+        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeLabel}" title="${t('btn.saveForLater')}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
         <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="${t('btn.closeThisTab')}">
@@ -781,6 +773,17 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
         </button>
       </div>
     </div>`;
+}
+
+
+/* ----------------------------------------------------------------
+   OVERFLOW CHIPS ("+N more" expand button in domain cards)
+   ---------------------------------------------------------------- */
+
+function buildOverflowChips(hiddenTabs, urlCounts = {}) {
+  const hiddenChips = hiddenTabs.map(tab => {
+    const label = cleanTitle(smartTitle(stripTitleNoise(tab.title || ''), tab.url), '');
+    return renderPageChip(tab, label, urlCounts[tab.url] || 1);
   }).join('');
 
   return `
@@ -842,26 +845,7 @@ function renderDomainCard(group) {
       const parsed = new URL(tab.url);
       if (parsed.hostname === 'localhost' && parsed.port) label = `${parsed.port} ${label}`;
     } catch {}
-    const count    = urlCounts[tab.url];
-    const dupeTag  = count > 1 ? ` <span class="chip-dupe-badge">(${count}x)</span>` : '';
-    const chipClass = count > 1 ? ' chip-has-dupes' : '';
-    const safeUrl   = (tab.url || '').replace(/"/g, '&quot;');
-    const safeTitle = label.replace(/"/g, '&quot;');
-    let domain = '';
-    try { domain = new URL(tab.url).hostname; } catch {}
-    const faviconUrl = domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=16` : '';
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
-      ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="">` : ''}
-      <span class="chip-text">${label}</span>${dupeTag}
-      <div class="chip-actions">
-        <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="${t('btn.saveForLater')}">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
-        </button>
-        <button class="chip-action chip-close" data-action="close-single-tab" data-tab-url="${safeUrl}" title="${t('btn.closeThisTab')}">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-        </button>
-      </div>
-    </div>`;
+    return renderPageChip(tab, label, urlCounts[tab.url]);
   }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(8), urlCounts) : '');
 
   let actionsHtml = `
@@ -887,7 +871,7 @@ function renderDomainCard(group) {
       <div class="status-bar"></div>
       <div class="mission-content">
         <div class="mission-top">
-          <span class="mission-name">${isLanding ? t('label.homepages') : (group.label || friendlyDomain(group.domain))}</span>
+          <span class="mission-name">${escapeHtml(isLanding ? t('label.homepages') : (group.label || friendlyDomain(group.domain)))}</span>
           ${tabBadge}
           ${dupeBadge}
         </div>
@@ -971,22 +955,23 @@ async function renderDeferredColumn() {
 function renderDeferredItem(item) {
   let domain = '';
   try { domain = new URL(item.url).hostname.replace(/^www\./, ''); } catch {}
-  const faviconUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=16`;
+  const icon = escapeHtml(faviconUrl(item.url || '', chrome.runtime.id));
   const ago = timeAgo(item.savedAt);
+  const id = escapeHtml(item.id);
 
   return `
-    <div class="deferred-item" data-deferred-id="${item.id}">
-      <input type="checkbox" class="deferred-checkbox" data-action="check-deferred" data-deferred-id="${item.id}">
+    <div class="deferred-item" data-deferred-id="${id}">
+      <input type="checkbox" class="deferred-checkbox" data-action="check-deferred" data-deferred-id="${id}">
       <div class="deferred-info">
-        <a href="${item.url}" target="_blank" rel="noopener" class="deferred-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
-          <img src="${faviconUrl}" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" class="deferred-favicon">${item.title || item.url}
+        <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="deferred-title" title="${escapeHtml(item.title || '')}">
+          <img src="${icon}" alt="" style="width:14px;height:14px;vertical-align:-2px;margin-right:4px" class="deferred-favicon">${escapeHtml(item.title || item.url)}
         </a>
         <div class="deferred-meta">
-          <span>${domain}</span>
+          <span>${escapeHtml(domain)}</span>
           <span>${ago}</span>
         </div>
       </div>
-      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${item.id}" title="${t('btn.dismiss')}">
+      <button class="deferred-dismiss" data-action="dismiss-deferred" data-deferred-id="${id}" title="${t('btn.dismiss')}">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
       </button>
     </div>`;
@@ -1001,8 +986,8 @@ function renderArchiveItem(item) {
   const ago = item.completedAt ? timeAgo(item.completedAt) : timeAgo(item.savedAt);
   return `
     <div class="archive-item">
-      <a href="${item.url}" target="_blank" rel="noopener" class="archive-item-title" title="${(item.title || '').replace(/"/g, '&quot;')}">
-        ${item.title || item.url}
+      <a href="${escapeHtml(item.url)}" target="_blank" rel="noopener" class="archive-item-title" title="${escapeHtml(item.title || '')}">
+        ${escapeHtml(item.title || item.url)}
       </a>
       <span class="archive-item-date">${ago}</span>
     </div>`;
@@ -1045,105 +1030,10 @@ async function renderStaticDashboard() {
   await fetchOpenTabs();
   const realTabs = getRealTabs();
 
-  // --- Group tabs by domain ---
-  // Landing pages (Gmail inbox, Twitter home, etc.) get their own special group
-  // so they can be closed together without affecting content tabs on the same domain.
-  const LANDING_PAGE_PATTERNS = [
-    { hostname: 'mail.google.com', test: (p, h) =>
-        !h.includes('#inbox/') && !h.includes('#sent/') && !h.includes('#search/') },
-    { hostname: 'x.com',               pathExact: ['/home'] },
-    { hostname: 'www.linkedin.com',    pathExact: ['/'] },
-    { hostname: 'github.com',          pathExact: ['/'] },
-    { hostname: 'www.youtube.com',     pathExact: ['/'] },
-    // Merge personal patterns from config.js
-    ...(typeof LOCAL_LANDING_PAGE_PATTERNS !== 'undefined' ? LOCAL_LANDING_PAGE_PATTERNS : []),
-  ];
-
-  function isLandingPage(url) {
-    try {
-      const parsed = new URL(url);
-      return LANDING_PAGE_PATTERNS.some(p => {
-        // Support both exact hostname and suffix matching (for wildcard subdomains)
-        const hostnameMatch = p.hostname
-          ? parsed.hostname === p.hostname
-          : p.hostnameEndsWith
-            ? parsed.hostname.endsWith(p.hostnameEndsWith)
-            : false;
-        if (!hostnameMatch) return false;
-        if (p.test)       return p.test(parsed.pathname, url);
-        if (p.pathPrefix) return parsed.pathname.startsWith(p.pathPrefix);
-        if (p.pathExact)  return p.pathExact.includes(parsed.pathname);
-        return parsed.pathname === '/';
-      });
-    } catch { return false; }
-  }
-
-  domainGroups = [];
-  const groupMap    = {};
-  const landingTabs = [];
-
-  // Custom group rules from config.js (if any)
-  const customGroups = typeof LOCAL_CUSTOM_GROUPS !== 'undefined' ? LOCAL_CUSTOM_GROUPS : [];
-
-  // Check if a URL matches a custom group rule; returns the rule or null
-  function matchCustomGroup(url) {
-    try {
-      const parsed = new URL(url);
-      return customGroups.find(r => {
-        const hostMatch = r.hostname
-          ? parsed.hostname === r.hostname
-          : r.hostnameEndsWith
-            ? parsed.hostname.endsWith(r.hostnameEndsWith)
-            : false;
-        if (!hostMatch) return false;
-        if (r.pathPrefix) return parsed.pathname.startsWith(r.pathPrefix);
-        return true; // hostname matched, no path filter
-      }) || null;
-    } catch { return null; }
-  }
-
-  for (const tab of realTabs) {
-    try {
-      if (isLandingPage(tab.url)) {
-        landingTabs.push(tab);
-        continue;
-      }
-
-      // Check custom group rules first (e.g. merge subdomains, split by path)
-      const customRule = matchCustomGroup(tab.url);
-      if (customRule) {
-        const key = customRule.groupKey;
-        if (!groupMap[key]) groupMap[key] = { domain: key, label: customRule.groupLabel, tabs: [] };
-        groupMap[key].tabs.push(tab);
-        continue;
-      }
-
-      let hostname;
-      if (tab.url && tab.url.startsWith('file://')) {
-        hostname = 'local-files';
-      } else {
-        hostname = new URL(tab.url).hostname;
-      }
-      if (!hostname) continue;
-
-      if (!groupMap[hostname]) groupMap[hostname] = { domain: hostname, tabs: [] };
-      groupMap[hostname].tabs.push(tab);
-    } catch {
-      // Skip malformed URLs
-    }
-  }
-
-  if (landingTabs.length > 0) {
-    groupMap['__landing-pages__'] = { domain: '__landing-pages__', tabs: landingTabs };
-  }
-
-  // Sort: landing pages first, then alphabetically by domain name
-  domainGroups = Object.values(groupMap).sort((a, b) => {
-    const aIsLanding = a.domain === '__landing-pages__';
-    const bIsLanding = b.domain === '__landing-pages__';
-    if (aIsLanding !== bIsLanding) return aIsLanding ? -1 : 1;
-
-    return a.domain.localeCompare(b.domain, undefined, { sensitivity: 'base' });
+  // --- Group tabs by site (homepages first; overrides come from config.js) ---
+  domainGroups = groupTabsBySite(realTabs, {
+    landingPatterns: typeof LOCAL_LANDING_PAGE_PATTERNS !== 'undefined' ? LOCAL_LANDING_PAGE_PATTERNS : [],
+    customGroups:    typeof LOCAL_CUSTOM_GROUPS !== 'undefined' ? LOCAL_CUSTOM_GROUPS : [],
   });
 
   // --- Render domain cards ---
@@ -1629,27 +1519,28 @@ async function renderTabGroups() {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
     const tabsHtml = group.tabs.map((tab, idx) => {
-      const faviconUrl = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(tab.url)}&size=16`;
-      const safeTitle = (tab.title || tab.url || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-      return `<div class="tab-group-tab" data-action="restore-group-tab" data-group-id="${group.id}" data-tab-idx="${idx}" title="${safeTitle}">
-        <img class="tab-group-tab-favicon" src="${faviconUrl}" alt="">
-        <span class="tab-group-tab-title">${tab.title || tab.url}</span>
-        <button class="tab-group-tab-remove" data-action="remove-group-tab" data-group-id="${group.id}" data-tab-idx="${idx}">
+      const icon = escapeHtml(faviconUrl(tab.url, chrome.runtime.id));
+      const safeTitle = escapeHtml(tab.title || tab.url || '');
+      const groupId = escapeHtml(group.id);
+      return `<div class="tab-group-tab" data-action="restore-group-tab" data-group-id="${groupId}" data-tab-idx="${idx}" title="${safeTitle}">
+        <img class="tab-group-tab-favicon" src="${icon}" alt="">
+        <span class="tab-group-tab-title">${safeTitle}</span>
+        <button class="tab-group-tab-remove" data-action="remove-group-tab" data-group-id="${groupId}" data-tab-idx="${idx}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
         </button>
       </div>`;
     }).join('');
 
-    return `<div class="tab-group-card" data-group-id="${group.id}">
-      <div class="tab-group-header" data-action="toggle-group" data-group-id="${group.id}">
+    return `<div class="tab-group-card" data-group-id="${escapeHtml(group.id)}">
+      <div class="tab-group-header" data-action="toggle-group" data-group-id="${escapeHtml(group.id)}">
         <svg class="tab-group-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
         <div class="tab-group-info">
           <div class="tab-group-date">${date}</div>
           <div class="tab-group-count">${t('tabGroups.tabCount', { n: group.tabs.length })}</div>
         </div>
         <div class="tab-group-actions">
-          <button class="tab-group-action restore" data-action="restore-group" data-group-id="${group.id}">${t('tabGroups.restoreAll')}</button>
-          <button class="tab-group-action delete" data-action="delete-group" data-group-id="${group.id}">${t('tabGroups.delete')}</button>
+          <button class="tab-group-action restore" data-action="restore-group" data-group-id="${escapeHtml(group.id)}">${t('tabGroups.restoreAll')}</button>
+          <button class="tab-group-action delete" data-action="delete-group" data-group-id="${escapeHtml(group.id)}">${t('tabGroups.delete')}</button>
         </div>
       </div>
       <div class="tab-group-tabs">${tabsHtml}</div>
@@ -1673,7 +1564,7 @@ document.addEventListener('click', async (e) => {
   }
 
   if (action === 'toggle-group') {
-    const card = document.querySelector(`.tab-group-card[data-group-id="${actionEl.dataset.groupId}"]`);
+    const card = document.querySelector(`.tab-group-card[data-group-id="${CSS.escape(actionEl.dataset.groupId)}"]`);
     if (card) card.classList.toggle('expanded');
     return;
   }
@@ -1740,22 +1631,24 @@ function renderShortcuts() {
   listEl.innerHTML = _shortcuts.map(sc => {
     let domain = '';
     try { domain = new URL(sc.url).hostname; } catch {}
-    const letter = (sc.name || sc.url || '?').charAt(0).replace(/"/g, '');
+    const letter = escapeHtml((sc.name || sc.url || '?').charAt(0));
     // Use Chrome's built-in favicon cache (works for intranet sites too)
     const chromeFavicon = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(sc.url)}&size=64`;
-    return `<a class="shortcut-item" href="${sc.url}" data-shortcut-id="${sc.id}" title="${(sc.name || '').replace(/"/g, '&quot;')}">
+    return `<a class="shortcut-item" href="${escapeHtml(sc.url)}" data-shortcut-id="${escapeHtml(sc.id)}" title="${escapeHtml(sc.name || '')}">
       <div class="shortcut-favicon">
-        <img src="${chromeFavicon}" data-letter="${letter}" alt="">
+        <img src="${escapeHtml(chromeFavicon)}" data-letter="${letter}" alt="">
       </div>
-      <span class="shortcut-name">${sc.name || domain || sc.url}</span>
+      <span class="shortcut-name">${escapeHtml(sc.name || domain || sc.url)}</span>
     </a>`;
   }).join('');
 
   // Fallback to letter on error (CSP blocks inline onerror)
   listEl.querySelectorAll('.shortcut-favicon img').forEach(img => {
     img.addEventListener('error', function() {
-      const letter = this.dataset.letter || '?';
-      this.parentElement.innerHTML = `<span class="shortcut-favicon-letter">${letter}</span>`;
+      const span = document.createElement('span');
+      span.className = 'shortcut-favicon-letter';
+      span.textContent = this.dataset.letter || '?';
+      this.parentElement.replaceChildren(span);
     }, { once: true });
   });
 }
