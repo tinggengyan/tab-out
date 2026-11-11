@@ -1,0 +1,21 @@
+tools/chrome-search-e2e.mjs
+  s_c54bbc2669fa05::t_fbe61048574f1c 1-125
+tools/run-chrome-e2e.mjs
+  s_c54bbc2669fa05::t_0a47cf946575af 23-24,29,31-43,53,57,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "bce102b7f9b8a87fd4d013f90f133ca71488dc6b",
+  "prompts": {},
+  "sessions": {
+    "s_c54bbc2669fa05": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_c54bbc2669fa05",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
