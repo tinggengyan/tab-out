@@ -1,0 +1,40 @@
+tests/unit/close-undo.test.js
+  h_d16e721398491f 135-161
+.github/workflows/verify.yml
+  h_d16e721398491f 23,27
+tests/integration/static-contract.test.js
+  h_d16e721398491f 12,20-22
+tests/unit/collected-store.test.js
+  h_d16e721398491f 128-138
+extension/app.js
+  s_41f84e226eb0bf::t_75fad778e68aaa 1053-1056,1115-1129,1134-1137,1204,1206-1208,1258,1262,1274-1275,1303,1316,1325-1328,1330-1332,1335,1389-1390,1393,1416,1420-1423,1431-1432,1434,1436-1445,1456,1458-1462,1544
+extension/i18n.js
+  s_41f84e226eb0bf::t_328e22d15a8c51 116-118,235-237
+extension/lib/close-undo.js
+  s_41f84e226eb0bf::t_76e24ee4c157e1 23-25,54-64,68-75,78
+extension/lib/collected-store.js
+  s_41f84e226eb0bf::t_8bc1da923d15f5 91-102
+tools/chrome-home-e2e.mjs
+  s_41f84e226eb0bf::t_1642862a56b6cb 64-80,172,255-301
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a3bb5fd6fd5bca56e15ec1493642335063829935",
+  "prompts": {},
+  "humans": {
+    "h_d16e721398491f": {
+      "author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  },
+  "sessions": {
+    "s_41f84e226eb0bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_41f84e226eb0bf",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
