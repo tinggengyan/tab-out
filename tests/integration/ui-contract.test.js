@@ -37,7 +37,7 @@ test('every local script declared by the page exists in the extension package', 
 });
 
 test('destructive asset deletion exposes immediate trash undo', () => {
-  assert.match(app, /showToast\(t\('toast\.groupDeleted'\), \{ undoTrashId: trashItem\.id \}\)/);
+  assert.match(app, /showToast\(t\('toast\.movedToTrash'\), \{ undoTrashId: item\.id \}\)/);
   assert.match(app, /if \(action === 'undo-trash'\)/);
   assert.match(app, /await restoreTrashItem\(trashId\)/);
 });
@@ -69,7 +69,7 @@ test('every modal surface has an accessible dialog name and focusable control', 
 });
 
 test('release manifest keeps least privilege and contains no remote executable code', () => {
-  assert.deepEqual([...manifest.permissions].sort(), ['alarms', 'favicon', 'storage', 'tabs']);
+  assert.deepEqual([...manifest.permissions].sort(), ['alarms', 'favicon', 'storage', 'tabGroups', 'tabs']);
   assert.deepEqual(manifest.host_permissions, ['https://license.tabout.app/*']);
   assert.equal('activeTab' in manifest.permissions, false);
   assert.doesNotMatch(html, /<script[^>]+src=["']https?:\/\//i);

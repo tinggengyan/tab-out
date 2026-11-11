@@ -21,8 +21,11 @@
         .map(tab => tab.groupId)
         .filter(groupId => Number.isInteger(groupId) && groupId >= 0))];
       const groups = await readGroups(groupIds);
+      if (groups.length !== groupIds.length) {
+        throw Object.assign(new Error('Native tab group metadata could not be captured'), { code: 'group_metadata_unavailable' });
+      }
       const session = buildSession({
-        windows,
+        windows: windows.map(window => ({ ...window, tabs: (window.tabs || []).map(tab => ({ ...tab, url: tab.pendingUrl || tab.url })) })),
         groups,
         type: type || options.type || 'undo',
         source: metadata.source,
@@ -56,70 +59,111 @@
     }
 
     async function restoreSession(session, restoreOptions = {}) {
-      const result = { succeeded: 0, failed: [] };
-      for (const sourceWindow of session.windows || []) {
-        let targetWindowId;
+      const result = { succeeded: 0, failed: [], restoredTabs: [], createdWindows: [], windowMappings: { ...restoreOptions.windowMappings }, groupMappings: { ...restoreOptions.groupMappings } };
+      const mode = restoreOptions.mode || 'merge';
+      for (const [windowIndex, sourceWindow] of (session.windows || []).entries()) {
+        const sourceWindowKey = sourceWindow.sourceWindowId ?? `window:${windowIndex}`;
+        let targetWindowId = restoreOptions.targetWindowId;
         const restoredByRef = new Map();
         const orderedTabs = [...(sourceWindow.tabs || [])].sort((a, b) => a.index - b.index);
-        if (restoreOptions.mode === 'new-window') {
-          const firstRestorable = orderedTabs.find(tab => tab.restorable);
+        const restorable = orderedTabs.filter(tab => tab.restorable);
+        for (const tab of orderedTabs.filter(tab => !tab.restorable)) {
+          result.failed.push({ tabId: tab.id, url: tab.url, code: 'unsupported_url' });
+        }
+        if (!restorable.length) continue;
+        let mappedWindow = false;
+        if (Number.isInteger(result.windowMappings[sourceWindowKey])) {
           try {
-            const createdWindow = await chromeApi.windows.create({
-              focused: false,
-              ...(firstRestorable ? { url: firstRestorable.url } : {}),
-            });
-            targetWindowId = createdWindow.id;
-            const createdTab = createdWindow.tabs?.[0];
-            if (firstRestorable && createdTab) {
-              restoredByRef.set(firstRestorable.id, createdTab.id);
-              await chromeApi.tabs.update(createdTab.id, { pinned: Boolean(firstRestorable.pinned) });
-              result.succeeded += 1;
-            }
+            const id = result.windowMappings[sourceWindowKey];
+            const existing = chromeApi.windows.get ? await chromeApi.windows.get(id) : (await chromeApi.windows.getAll({})).find(window => window.id === id);
+            if (existing && !existing.incognito) { targetWindowId = existing.id; mappedWindow = true; }
+          } catch { /* a retry target window was closed */ }
+        }
+        if (mode === 'original' && !mappedWindow) {
+          try {
+            const existing = chromeApi.windows.get
+              ? await chromeApi.windows.get(sourceWindow.sourceWindowId)
+              : (await chromeApi.windows.getAll({})).find(window => window.id === sourceWindow.sourceWindowId);
+            targetWindowId = existing && !existing.incognito ? existing.id : undefined;
           } catch { targetWindowId = undefined; }
         }
-        for (const tab of orderedTabs) {
-          if (!tab.restorable) {
-            result.failed.push({ tabId: tab.id, url: tab.url, code: 'unsupported_url' });
-            continue;
-          }
-          if (restoredByRef.has(tab.id)) continue;
+        const needsWindow = !mappedWindow && (mode === 'new-window' || (mode === 'original' && targetWindowId === undefined));
+        if (needsWindow) {
           try {
-            const created = await chromeApi.tabs.create({
-              url: tab.url,
-              active: false,
-              ...(targetWindowId !== undefined ? { windowId: targetWindowId } : {}),
-            });
-            restoredByRef.set(tab.id, created.id);
-            await chromeApi.tabs.update(created.id, { pinned: Boolean(tab.pinned) });
-            result.succeeded += 1;
-          } catch (error) {
-            result.failed.push({ tabId: tab.id, url: tab.url, code: 'create_failed', message: error?.message || String(error) });
-          }
-        }
-        for (const group of sourceWindow.groups || []) {
-          const tabIds = group.tabIds.map(ref => restoredByRef.get(ref)).filter(Number.isInteger);
-          if (tabIds.length === 0 || !chromeApi.tabs.group) continue;
-          try {
-            const groupId = await chromeApi.tabs.group({ tabIds, ...(targetWindowId !== undefined ? { createProperties: { windowId: targetWindowId } } : {}) });
-            if (chromeApi.tabGroups?.update) {
-              await chromeApi.tabGroups.update(groupId, {
-                title: group.title || '',
-                color: group.color || 'grey',
-                collapsed: Boolean(group.collapsed),
-              });
+            const createdWindow = await chromeApi.windows.create({ focused: false, url: restorable[0].url });
+            if (!Number.isInteger(createdWindow?.id)) throw new Error('Window was not created');
+            targetWindowId = createdWindow.id;
+            result.createdWindows.push(targetWindowId);
+            const createdTab = createdWindow.tabs?.[0];
+            if (createdTab) {
+              restoredByRef.set(restorable[0].id, createdTab.id);
+              result.restoredTabs.push({ tabRef: restorable[0].id, tabId: createdTab.id, windowId: targetWindowId });
+              result.succeeded++;
             }
           } catch (error) {
-            result.failed.push({
-              groupRef: group.ref,
-              code: 'group_restore_failed',
-              targetTabIds: tabIds,
-              group: { title: group.title || '', color: group.color || 'grey', collapsed: Boolean(group.collapsed) },
-              message: error?.message || String(error),
-            });
+            for (const tab of restorable) result.failed.push({ tabId: tab.id, url: tab.url, code: 'window_create_failed', message: error?.message || String(error) });
+            continue;
           }
         }
-        const active = orderedTabs.find(tab => tab.active && restoredByRef.has(tab.id));
-        if (active) await chromeApi.tabs.update(restoredByRef.get(active.id), { active: true });
+        if (Number.isInteger(targetWindowId)) result.windowMappings[sourceWindowKey] = targetWindowId;
+        for (const tab of restorable) {
+          let createdId = restoredByRef.get(tab.id);
+          if (createdId === undefined) {
+            try {
+              const props = { url: tab.url, active: false, ...(targetWindowId !== undefined ? { windowId: targetWindowId } : {}) };
+              if (mode === 'original' && !needsWindow && Number.isInteger(tab.index)) {
+                const existing = chromeApi.tabs.query ? await chromeApi.tabs.query({ windowId: targetWindowId }) : null;
+                props.index = Math.max(0, existing ? Math.min(tab.index, existing.length) : tab.index);
+              }
+              const created = await chromeApi.tabs.create(props);
+              createdId = created.id;
+              restoredByRef.set(tab.id, createdId);
+              result.restoredTabs.push({ tabRef: tab.id, tabId: createdId, windowId: created.windowId ?? targetWindowId });
+              result.succeeded++;
+            } catch (error) {
+              result.failed.push({ tabId: tab.id, url: tab.url, code: 'create_failed', message: error?.message || String(error) });
+              continue;
+            }
+          }
+          try { await chromeApi.tabs.update(createdId, { pinned: Boolean(tab.pinned) }); }
+          catch (error) { result.failed.push({ code: 'tab_metadata_restore_failed', targetTabId: createdId, properties: { pinned: Boolean(tab.pinned) }, message: error?.message || String(error) }); }
+        }
+        for (const group of sourceWindow.groups || []) {
+          const tabIds = (group.tabIds || []).map(ref => restoredByRef.get(ref)).filter(Number.isInteger);
+          if (!tabIds.length) continue;
+          const properties = { title: group.title || '', color: group.color || 'grey', collapsed: Boolean(group.collapsed) };
+          let existingGroupId = result.groupMappings[group.ref];
+          if (existingGroupId === undefined && mode === 'original' && !needsWindow && chromeApi.tabGroups?.get) {
+            try {
+              const sourceId = Number(String(group.ref).replace(/^group:/, ''));
+              const existing = await chromeApi.tabGroups.get(sourceId);
+              if (existing.windowId === targetWindowId) existingGroupId = sourceId;
+            } catch { /* recreate an original group that no longer exists */ }
+          }
+          try {
+            if (!chromeApi.tabs.group || !chromeApi.tabGroups?.update) throw new Error('Native tab groups are unavailable');
+            const groupId = await chromeApi.tabs.group({ tabIds, ...(existingGroupId !== undefined ? { groupId: existingGroupId } : targetWindowId !== undefined ? { createProperties: { windowId: targetWindowId } } : {}) });
+            existingGroupId = groupId;
+            result.groupMappings[group.ref] = groupId;
+            await chromeApi.tabGroups.update(groupId, properties);
+          } catch (error) {
+            result.failed.push({ groupRef: group.ref, code: 'group_restore_failed', targetTabIds: tabIds, targetWindowId, existingGroupId, group: properties, message: error?.message || String(error) });
+          }
+        }
+        const active = restorable.find(tab => tab.active && restoredByRef.has(tab.id));
+        if (active) {
+          const targetTabId = restoredByRef.get(active.id);
+          try { await chromeApi.tabs.update(targetTabId, { active: true }); }
+          catch (error) { result.failed.push({ code: 'tab_metadata_restore_failed', targetTabId, properties: { active: true }, message: error?.message || String(error) }); }
+        }
+      }
+      if (restoreOptions.groupFailures?.length) {
+        const retried = await retryGroupFailures(restoreOptions.groupFailures);
+        result.failed.push(...retried.failed);
+      }
+      for (const failure of restoreOptions.metadataFailures || []) {
+        try { await chromeApi.tabs.update(failure.targetTabId, failure.properties); }
+        catch (error) { result.failed.push({ ...failure, message: error?.message || String(error) }); }
       }
       return result;
     }
@@ -130,8 +174,9 @@
         const tabIds = (failure.targetTabIds || []).filter(Number.isInteger);
         if (!tabIds.length || !chromeApi.tabs.group) { result.failed.push(failure); continue; }
         try {
-          const groupId = await chromeApi.tabs.group({ tabIds });
-          if (chromeApi.tabGroups?.update) await chromeApi.tabGroups.update(groupId, failure.group || {});
+          if (!chromeApi.tabGroups?.update) throw new Error('Native tab groups are unavailable');
+          const groupId = await chromeApi.tabs.group({ tabIds, ...(Number.isInteger(failure.existingGroupId) ? { groupId: failure.existingGroupId } : Number.isInteger(failure.targetWindowId) ? { createProperties: { windowId: failure.targetWindowId } } : {}) });
+          await chromeApi.tabGroups.update(groupId, failure.group || {});
           result.succeeded += 1;
         } catch (error) {
           result.failed.push({ ...failure, message: error?.message || String(error) });

@@ -4,6 +4,15 @@
     ? require('../shared/sanitize.js').normalizeWebUrl
     : globalScope.TabOutCore.normalizeWebUrl;
 
+  const { withProjectStorageLock, readProjectStorage, normalizeProjectState } = typeof require === 'function'
+    ? require('./project-normalization.js') : globalScope.TabOutCore;
+  const isValidSessionShape = typeof require === 'function'
+    ? require('../domain/session.js').isValidSessionShape : globalScope.TabOutCore.isValidSessionShape;
+
+  function projectFingerprint(workspace) {
+    return JSON.stringify({ id: workspace.id, name: workspace.name, entries: workspace.entries, session: workspace.session });
+  }
+
   function createWorkspaceRepository(storageArea, options = {}) {
     if (!storageArea?.get || !storageArea?.set) throw new TypeError('A storage area is required');
     const key = options.key || 'workspacesV2';
@@ -11,11 +20,23 @@
     const now = options.now || (() => new Date().toISOString());
 
     async function list() {
-      const stored = await storageArea.get(key);
+      const stored = await readProjectStorage(storageArea, [key, 'tabGroups', 'projectMigrationBackupV1']);
+      if (key === 'workspacesV2') {
+        const normalized = normalizeProjectState(stored, { now: now() });
+        if (normalized.changed) { await storageArea.set(normalized.data); Object.assign(stored, normalized.data); }
+      }
       const workspaces = Array.isArray(stored[key]) ? stored[key] : [];
       return workspaces.sort((a, b) => Number(b.pinned) - Number(a.pinned) || a.order - b.order);
     }
     async function write(workspaces) { await storageArea.set({ [key]: workspaces }); }
+    function invalidateSession(workspace) {
+      delete workspace.session;
+      delete workspace.sessionSavedAt;
+    }
+    function copySession(session) {
+      if (!isValidSessionShape(session)) throw new Error('Invalid project session');
+      return structuredClone(session);
+    }
     function normalizeEntries(entries, existing = []) {
       const seen = new Set(existing.map(entry => entry.url));
       return (entries || []).map(entry => {
@@ -33,9 +54,56 @@
       }).filter(Boolean);
     }
 
-    return {
+    const api = {
       list,
+      async importData(incoming, importOptions = {}) {
+        await list();
+        const keys = [...new Set([...Object.keys(incoming), key, 'tabGroups', 'projectMigrationBackupV1'])];
+        const current = await readProjectStorage(storageArea, keys);
+        const merge = typeof require === 'function' ? require('../services/backup-service.js').mergePortableData : globalScope.TabOutCore.mergePortableData;
+        const update = importOptions.strategy === 'replace' ? structuredClone(incoming) : merge(current, incoming).data;
+        const candidate = { ...current, ...update };
+        if (importOptions.strategy === 'replace' && Object.hasOwn(incoming, 'tabGroups') && !Object.hasOwn(incoming, key)) candidate[key] = [];
+        const normalized = normalizeProjectState(candidate, { now: now() });
+        const committed = { ...update, [key]: normalized.data[key] || [], tabGroups: [] };
+        if (normalized.changed) committed.projectMigrationBackupV1 = normalized.data.projectMigrationBackupV1;
+        await storageArea.set(committed);
+        return committed;
+      },
+      async importLegacyGroups(groups) {
+        return api.importData({ tabGroups: groups }, { strategy: 'merge' });
+      },
       async get(id) { return (await list()).find(workspace => workspace.id === id) || null; },
+      async saveSession({ workspaceId, name, session, expectedFingerprint }) {
+        const workspaces = await list();
+        const existing = workspaceId ? workspaces.find(workspace => workspace.id === workspaceId) : null;
+        // This comparison is inside the shared storage lock, immediately before
+        // committing. A service-level check alone cannot protect multiple tabs.
+        if (expectedFingerprint !== undefined && (!existing || projectFingerprint(existing) !== expectedFingerprint)) {
+          throw Object.assign(new Error('Project changed since preview'), { code: 'preview_stale' });
+        }
+        if (workspaceId && !existing) throw new Error('Workspace not found');
+        const timestamp = now();
+        const savedSession = copySession(session);
+        const workspace = {
+          ...(existing || { id: createId(), description: '', color: '#c8713a', icon: '', pinned: false, order: workspaces.length, createdAt: timestamp }),
+          name: String(name || existing?.name || 'Untitled workspace').slice(0, 256),
+          entries: normalizeEntries(savedSession.windows.flatMap(window => window.tabs)),
+          session: savedSession, sessionSavedAt: timestamp, updatedAt: timestamp,
+        };
+        if (existing) workspaces[workspaces.indexOf(existing)] = workspace;
+        else workspaces.push(workspace);
+        await write(workspaces);
+        return workspace;
+      },
+      async touch(id) {
+        const workspaces = await list();
+        const workspace = workspaces.find(item => item.id === id);
+        if (!workspace) throw new Error('Workspace not found');
+        workspace.lastUsedAt = now();
+        await write(workspaces);
+        return workspace;
+      },
       async create(input = {}) {
         const workspaces = await list();
         const timestamp = now();
@@ -71,6 +139,7 @@
         const workspace = workspaces.find(item => item.id === id);
         if (!workspace) throw new Error('Workspace not found');
         workspace.entries.push(...normalizeEntries(entries, workspace.entries));
+        invalidateSession(workspace);
         workspace.entries.forEach((entry, index) => { entry.order = index; });
         workspace.updatedAt = now();
         await write(workspaces);
@@ -83,6 +152,7 @@
         const sourceIndex = workspace.entries.findIndex(entry => entry.id === entryId);
         if (sourceIndex < 0) throw new Error('Workspace entry not found');
         const [entry] = workspace.entries.splice(sourceIndex, 1);
+        invalidateSession(workspace);
         const bounded = Math.max(0, Math.min(targetIndex, workspace.entries.length));
         workspace.entries.splice(bounded, 0, entry);
         workspace.entries.forEach((item, index) => { item.order = index; });
@@ -105,6 +175,8 @@
           target.entries.splice(targetIndex, 0, copy);
         }
         if (!transferOptions.copy) source.entries.splice(entryIndex, 1);
+        if (!transferOptions.copy) invalidateSession(source);
+        invalidateSession(target);
         source.entries.forEach((item, index) => { item.order = index; });
         target.entries.forEach((item, index) => { item.order = index; });
         source.updatedAt = now();
@@ -129,6 +201,8 @@
           }
         }
         if (!transferOptions.copy) source.entries = source.entries.filter(entry => !selected.has(entry.id));
+        if (!transferOptions.copy) invalidateSession(source);
+        invalidateSession(target);
         source.entries.forEach((entry, index) => { entry.order = index; });
         target.entries.forEach((entry, index) => { entry.order = index; });
         source.updatedAt = now();
@@ -142,6 +216,7 @@
         if (!workspace) throw new Error('Workspace not found');
         const selected = new Set(entryIds || []);
         workspace.entries = workspace.entries.filter(entry => !selected.has(entry.id));
+        invalidateSession(workspace);
         workspace.entries.forEach((entry, index) => { entry.order = index; });
         workspace.updatedAt = now();
         await write(workspaces);
@@ -160,6 +235,10 @@
       },
       async restore(input = {}) {
         const workspaces = await list();
+        if (input.restoredFromTrashId) {
+          const previous = workspaces.find(project => project.restoredFromTrashId === input.restoredFromTrashId);
+          if (previous) return previous;
+        }
         const timestamp = now();
         const workspace = {
           id: input.id && !workspaces.some(item => item.id === input.id) ? input.id : createId(),
@@ -169,6 +248,10 @@
           pinned: Boolean(input.pinned), order: workspaces.length,
           createdAt: input.createdAt || timestamp, updatedAt: timestamp,
           entries: normalizeEntries(input.entries),
+          ...(input.session ? { session: copySession(input.session), sessionSavedAt: input.sessionSavedAt || timestamp } : {}),
+          ...(input.lastUsedAt ? { lastUsedAt: input.lastUsedAt } : {}),
+          ...(input.legacyGroupId ? { legacyGroupId: input.legacyGroupId } : {}),
+          ...(input.restoredFromTrashId ? { restoredFromTrashId: input.restoredFromTrashId } : {}),
         };
         await write([...workspaces, workspace]);
         return workspace;
@@ -183,8 +266,9 @@
         return removed;
       },
     };
+    return Object.fromEntries(Object.entries(api).map(([name, action]) => [name, (...args) => withProjectStorageLock(storageArea, () => action.apply(api, args))]));
   }
-  const api = { createWorkspaceRepository };
+  const api = { createWorkspaceRepository, projectFingerprint };
   globalScope.TabOutCore = Object.assign(globalScope.TabOutCore || {}, api);
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : self);

@@ -55,7 +55,7 @@ test('sync entitlement enters grace for seven days then expires', async () => {
 
 test('free entitlement exposes safe default limits', async () => {
   const service = createEntitlementService({ storage: memoryStorage() });
-  assert.equal(await service.limit('workspaces.limit'), 3);
+  assert.equal(await service.limit('workspaces.limit'), Infinity);
   assert.equal(await service.limit('history.automatic'), 3);
   assert.equal(await service.limit('manualSnapshots.limit'), 3);
   assert.equal(await service.limit('trash.days'), 7);
@@ -70,5 +70,5 @@ test('refunded entitlement preserves local access but disables paid capabilities
   await service.activate(token);
   assert.equal((await service.current()).status, 'refunded');
   assert.equal(await service.has('rules.enabled'), false);
-  assert.equal(await service.limit('workspaces.limit'), 3);
+  assert.equal(await service.limit('workspaces.limit'), Infinity);
 });

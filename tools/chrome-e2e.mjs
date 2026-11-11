@@ -158,13 +158,31 @@ async function main() {
   await evaluate(`chrome.windows.remove(${duplicate.windowId})`);
   console.log('PASS Free search, platform aliases, encoded query, settings persistence and duplicate identity');
 
-  await click('[data-action="collect-all-tabs"]');
-  await waitFor("document.querySelector('#toastAction').style.display !== 'none'", 'collect undo action');
-  assert.equal(await extensionState("state.tabGroups?.length"), 1, 'collection was not persisted');
-  await waitFor("document.querySelectorAll('#openTabsMissions .mission-card').length === 0", 'collected tabs to close');
-  await click('#toastAction');
-  await waitFor("document.querySelectorAll('#openTabsMissions .mission-card').length > 0", 'undo to restore tabs');
-  assert.equal(await extensionState("state.tabGroups?.length || 0"), 0, 'undo left a stale collected group');
+  await click('#tabsBulkMenu > summary');
+  await click('[data-action="select-all-saveable"]');
+  await click('#tabsSelectionSaveBtn');
+  await waitFor("getComputedStyle(document.querySelector('#projectDialogOverlay')).display !== 'none'", 'project save-and-put-away preview');
+  await waitFor("!document.querySelector('#projectExecuteBtn').disabled", 'explicit current-window preview selected');
+  assert.equal(await evaluate('tabOutProjectWorkbench.controller.state.preview.counts.selected'),3,'preview is scoped to three fixture pages');
+  await click('#projectExecuteBtn');
+  await waitFor("tabOutProjectWorkbench.controller.state.result?.status === 'complete' && !tabOutProjectWorkbench.controller.state.busy", 'save before closing');
+  await click('#projectDoneBtn');
+  await waitFor("document.querySelector('#toastAction').style.display !== 'none'", 'project undo action');
+  assert.equal(await extensionState("state.workspacesV2?.length"), 1, 'project was not persisted');
+  assert.equal(await extensionState("state.tabGroups?.length || 0"), 0, 'new save must not recreate old batches');
+  await waitFor(`chrome.tabs.query({}).then(tabs=>!tabs.some(tab=>(tab.pendingUrl||tab.url||'').startsWith(${JSON.stringify(fixtureOrigin)})))`, 'confirmed fixture pages actually closed');
+  await click('#dashboardNavTabs');
+  await waitFor("getComputedStyle(document.querySelector('#openTabsSection')).display === 'none'", 'empty live-page section is hidden');
+  // Use mouse input so CSS hit testing participates in Undo verification.
+  await evaluate(`Promise.all(document.querySelector('#toast').getAnimations().map(animation => animation.finished))`);
+  const undoPoint = await evaluate(`(() => {
+    const rect = document.querySelector('#toastAction').getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  })()`);
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...undoPoint, button: 'left', clickCount: 1 });
+  await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...undoPoint, button: 'left', clickCount: 1 });
+  await waitFor(`(async()=>{const actual=(await chrome.tabs.query({})).filter(tab=>(tab.pendingUrl||tab.url||'').startsWith(${JSON.stringify(fixtureOrigin)}));const rendered=new Set([...document.querySelectorAll('#openTabsMissions .page-chip')].map(node=>Number(node.dataset.tabId)));return actual.length===3&&actual.every(tab=>rendered.has(tab.id))&&getComputedStyle(document.querySelector('#openTabsSection')).display!=='none'})()`, 'Undo immediately renders the actual restored tab identities');
+  assert.equal(await extensionState("state.workspacesV2?.length"), 1, 'undo restores pages but keeps the saved project');
 
   const dashboardWindowId = await evaluate(`chrome.windows.getCurrent().then(window => window.id)`);
   const auxiliaryWindowId = await evaluate(`chrome.windows.create({
@@ -193,21 +211,21 @@ async function main() {
   assert.ok(await extensionState("state.snapshotsV2?.some(item => item.type === 'manual')"));
   await click('[data-action="close-history"]');
 
-  await click('[data-action="open-workspaces"]');
-  await waitFor("getComputedStyle(document.querySelector('#workspacesOverlay')).display !== 'none'", 'workspaces dialog');
-  promptText = 'E2E Workspace';
-  await click('[data-action="save-current-workspace"]');
-  await waitFor("document.querySelector('#workspaceList').textContent.includes('E2E Workspace')", 'workspace creation');
-  assert.ok(await extensionState("state.workspacesV2?.some(item => item.name === 'E2E Workspace')"));
-  for (const name of ['E2E Workspace 2', 'E2E Workspace 3']) {
-    promptText = name;
+  async function saveFromAdvanced(name) {
+    await click('[data-action="open-workspaces"]');
+    await waitFor("getComputedStyle(document.querySelector('#workspacesOverlay')).display !== 'none'", 'advanced projects dialog');
     await click('[data-action="save-current-workspace"]');
-    await waitFor(`document.querySelector('#workspaceList').textContent.includes(${JSON.stringify(name)})`, `workspace creation: ${name}`);
+    await waitFor("getComputedStyle(document.querySelector('#projectDialogOverlay')).display !== 'none'", 'advanced uses common project preview');
+    await evaluate(`document.querySelector('#projectNameInput').value=${JSON.stringify(name)};document.querySelector('#projectNameInput').dispatchEvent(new Event('input',{bubbles:true}))`);
+    if (!await evaluate('tabOutProjectWorkbench.controller.state.preview.tabIds.length')) await click('#projectSelectAllBtn');
+    await waitFor("!document.querySelector('#projectSaveOnlyBtn').disabled", 'advanced selection ready');
+    await click('#projectSaveOnlyBtn');
+    await waitFor(`workspaceRepository.list().then(items=>items.some(w=>w.name===${JSON.stringify(name)}))`, 'project creation '+name);
+    await waitFor('!tabOutProjectWorkbench.controller.state.busy', 'save finished');
+    await click('#projectDoneBtn');
   }
-  promptText = 'Blocked Workspace';
-  await click('[data-action="save-current-workspace"]');
-  assert.equal(await extensionState("state.workspacesV2?.length"), 3, 'Free workspace limit was not enforced');
-  await click('[data-action="close-workspaces"]');
+  for (const name of ['E2E Workspace','E2E Workspace 2','E2E Workspace 3','Free fourth project']) await saveFromAdvanced(name);
+  assert.equal(await extensionState("state.workspacesV2?.length"), 5, 'Free basic project saving preserves unlimited collection capability');
 
   await click('[data-action="open-upgrade"]');
   await waitFor("getComputedStyle(document.querySelector('#upgradeOverlay')).display !== 'none'", 'upgrade dialog');
@@ -221,12 +239,8 @@ async function main() {
   await evaluate(`document.querySelector('#licenseTokenInput').value = 'isolated.mock-token'`);
   await click('[data-action="activate-license"]');
   await waitFor("getComputedStyle(document.querySelector('#upgradeOverlay')).display === 'none'", 'simulated activation');
-  await click('[data-action="open-workspaces"]');
-  promptText = 'Unlocked Workspace';
-  await click('[data-action="save-current-workspace"]');
-  await waitFor("document.querySelector('#workspaceList').textContent.includes('Unlocked Workspace')", 'immediate Pro unlock');
-  assert.equal(await extensionState("state.workspacesV2?.length"), 4, 'simulated purchase did not unlock the fourth workspace');
-  await click('[data-action="close-workspaces"]');
+  await saveFromAdvanced('Unlocked Workspace');
+  assert.equal(await extensionState("state.workspacesV2?.length"), 6, 'existing-license activation retains all Free projects');
 
   await click('[data-action="open-command"]');
   await waitFor("getComputedStyle(document.querySelector('#commandOverlay')).display !== 'none'", 'command search');
@@ -287,7 +301,7 @@ async function main() {
   fixtureServer = null;
   process.stdout.write(JSON.stringify({
     ok: true,
-    journeys: ['free-unified-search', 'platform-alias-search', 'duplicate-tab-identity', 'onboarding-collect-undo', 'automatic-snapshot-window-restore', 'manual-snapshot', 'free-limit-purchase-unlock', 'workspace-search', 'backup-import', 'interrupted-partial-restore-report-retry'],
+    journeys: ['free-unified-search', 'platform-alias-search', 'duplicate-tab-identity', 'onboarding-collect-undo', 'automatic-snapshot-window-restore', 'manual-snapshot', 'unlimited-basic-projects-existing-license-activation', 'workspace-search', 'backup-import', 'interrupted-partial-restore-report-retry'],
     operationCount: operations.length,
   }, null, 2) + '\n');
 }

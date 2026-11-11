@@ -2,50 +2,8 @@
   'use strict';
 
   const MAX_IMPORT_BYTES = 1024 * 1024;
-  const COPY = {
-    en: {
-      title: 'Search platforms', subtitle: 'Use a name or alias before your query to search a platform.',
-      add: 'Add platform', empty: 'No search platforms yet.', edit: 'Edit', remove: 'Delete',
-      name: 'Name', aliases: 'Aliases', aliasesHint: 'Separate aliases with commas or new lines.',
-      domain: 'Platform domain', template: 'Search URL template',
-      templateHint: 'Paste a real search URL and replace its query with {Query}.', destination: 'Actual destination: {host}',
-      testQuery: 'Test query', test: 'Open test search', save: 'Save', cancel: 'Cancel', close: 'Close',
-      import: 'Import', export: 'Export', importTitle: 'Import preview',
-      importSummary: '{added} new · {conflicts} conflicts', added: 'Will add', conflicts: 'Skipped conflicts',
-      none: 'None', confirmImport: 'Import platforms', importAgain: 'The preview changed because your platforms were edited. Review it before confirming again.',
-      saved: 'Platform saved.', deleted: 'Platform deleted.', imported: 'Platforms imported.',
-      confirmDelete: 'Delete “{name}”?', fileTooLarge: 'The import file must be 1 MB or smaller.',
-      invalidFile: 'Choose a valid Tab Out platform export file.', queryRequired: 'Enter a test query.',
-      stale: 'These platforms changed elsewhere. Your action was not saved; review the latest list and try again.',
-      conflict: 'Conflicts with “{name}”.',
-      genericError: 'Could not complete that action.', nameError: 'Check the platform name.', aliasesError: 'Check the aliases.',
-      domainError: 'Check the platform domain.', templateError: 'Check the search URL template.',
-    },
-    zh: {
-      title: '搜索平台', subtitle: '在关键词前输入平台名称或别名，即可搜索该平台。',
-      add: '添加平台', empty: '暂无搜索平台。', edit: '编辑', remove: '删除',
-      name: '名称', aliases: '别名', aliasesHint: '用逗号或换行分隔多个别名。',
-      domain: '平台域名', template: '搜索网址模板',
-      templateHint: '复制真实搜索网址，并将关键词替换为 {Query}。', destination: '实际目标：{host}',
-      testQuery: '测试关键词', test: '打开测试搜索', save: '保存', cancel: '取消', close: '关闭',
-      import: '导入', export: '导出', importTitle: '导入预览',
-      importSummary: '新增 {added} 项 · 冲突 {conflicts} 项', added: '将新增', conflicts: '冲突并跳过',
-      none: '无', confirmImport: '导入平台', importAgain: '平台配置已发生变化，请查看更新后的预览后再次确认。',
-      saved: '平台已保存。', deleted: '平台已删除。', imported: '平台已导入。',
-      confirmDelete: '删除“{name}”？', fileTooLarge: '导入文件不能超过 1 MB。',
-      invalidFile: '请选择有效的 Tab Out 平台导出文件。', queryRequired: '请输入测试关键词。',
-      stale: '平台配置已在其他页面发生变化。本次操作未保存，请查看最新列表后重试。',
-      conflict: '与“{name}”冲突。',
-      genericError: '操作失败，请重试。', nameError: '请检查平台名称。', aliasesError: '请检查别名。',
-      domainError: '请检查平台域名。', templateError: '请检查搜索网址模板。',
-    },
-  };
-
   function getCopy() {
-    const locale = (() => {
-      try { return globalScope.chrome?.i18n?.getUILanguage?.() || ''; } catch { return ''; }
-    })() || globalScope.navigator?.language || '';
-    return COPY[String(locale).toLowerCase().startsWith('zh') ? 'zh' : 'en'];
+    return new Proxy({}, { get: (_, key) => typeof globalScope.t === 'function' ? globalScope.t(`platform.${String(key)}`) : `platform.${String(key)}` });
   }
 
   function format(text, values) {
@@ -173,9 +131,15 @@
     return node;
   }
 
+  function localized(tag, className, key) {
+    const node = el(tag, className, getCopy()[key]);
+    node.dataset.platformCopy = key;
+    return node;
+  }
+
   function field(copy, key, input) {
     const wrap = el('label', 'sps-field');
-    wrap.append(el('span', 'sps-label', copy[key]), input);
+    wrap.append(localized('span', 'sps-label', key), input);
     const error = el('span', 'sps-error'); error.dataset.errorFor = key; wrap.append(error);
     return wrap;
   }
@@ -190,18 +154,20 @@
     let editingId = null;
     let importPreview = null;
     let returnFocus = null;
+    let statusCopy = null;
+    let activeError = null;
 
     const overlay = el('div', 'sps-overlay'); overlay.id = 'searchPlatformSettingsOverlay'; overlay.hidden = true;
     const dialog = el('section', 'sps-dialog'); dialog.setAttribute('role', 'dialog'); dialog.setAttribute('aria-modal', 'true'); dialog.setAttribute('aria-labelledby', 'spsTitle');
     const header = el('header', 'sps-header'); const heading = el('div');
-    const title = el('h2', '', copy.title); title.id = 'spsTitle'; heading.append(title, el('p', '', copy.subtitle));
+    const title = localized('h2', '', 'title'); title.id = 'spsTitle'; heading.append(title, localized('p', '', 'subtitle'));
     const close = el('button', 'sps-icon-button', '×'); close.type = 'button'; close.dataset.action = 'close-platform-settings'; close.setAttribute('aria-label', copy.close);
     header.append(heading, close);
     const status = el('p', 'sps-status'); status.setAttribute('role', 'status');
     const toolbar = el('div', 'sps-toolbar');
-    const add = el('button', 'sps-button sps-primary', copy.add); add.type = 'button';
-    const importButton = el('button', 'sps-button', copy.import); importButton.type = 'button';
-    const exportButton = el('button', 'sps-button', copy.export); exportButton.type = 'button';
+    const add = localized('button', 'sps-button sps-primary', 'add'); add.type = 'button';
+    const importButton = localized('button', 'sps-button', 'import'); importButton.type = 'button';
+    const exportButton = localized('button', 'sps-button', 'export'); exportButton.type = 'button';
     const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = 'application/json,.json'; fileInput.hidden = true;
     toolbar.append(add, importButton, exportButton, fileInput);
     const list = el('div', 'sps-list');
@@ -210,22 +176,22 @@
     const aliasesInput = el('textarea'); aliasesInput.name = 'aliases'; aliasesInput.rows = 2;
     const domainInput = el('input'); domainInput.name = 'domain'; domainInput.autocomplete = 'off'; domainInput.placeholder = 'example.com';
     const templateInput = el('input'); templateInput.name = 'searchUrlTemplate'; templateInput.autocomplete = 'off'; templateInput.placeholder = 'https://example.com/search?q={Query}';
-    const aliasesField = field(copy, 'aliases', aliasesInput); aliasesField.append(el('small', 'sps-hint', copy.aliasesHint));
-    const templateField = field(copy, 'template', templateInput); templateField.append(el('small', 'sps-hint', copy.templateHint));
+    const aliasesField = field(copy, 'aliases', aliasesInput); aliasesField.append(localized('small', 'sps-hint', 'aliasesHint'));
+    const templateField = field(copy, 'template', templateInput); templateField.append(localized('small', 'sps-hint', 'templateHint'));
     const destination = el('small', 'sps-destination'); templateField.append(destination);
     const testRow = el('div', 'sps-test-row'); const queryInput = el('input'); queryInput.name = 'testQuery'; queryInput.placeholder = copy.testQuery;
-    const testButton = el('button', 'sps-button', copy.test); testButton.type = 'button'; testRow.append(queryInput, testButton);
+    const testButton = localized('button', 'sps-button', 'test'); testButton.type = 'button'; testRow.append(queryInput, testButton);
     const queryError = el('span', 'sps-error'); queryError.dataset.errorFor = 'query';
-    const actions = el('div', 'sps-actions'); const cancel = el('button', 'sps-button', copy.cancel); cancel.type = 'button'; const save = el('button', 'sps-button sps-primary', copy.save); save.type = 'submit'; actions.append(cancel, save);
+    const actions = el('div', 'sps-actions'); const cancel = localized('button', 'sps-button', 'cancel'); cancel.type = 'button'; const save = localized('button', 'sps-button sps-primary', 'save'); save.type = 'submit'; actions.append(cancel, save);
     editor.append(field(copy, 'name', nameInput), aliasesField, field(copy, 'domain', domainInput), templateField, testRow, queryError, actions);
     const preview = el('section', 'sps-import-preview'); preview.hidden = true;
     dialog.append(header, status, toolbar, list, editor, preview); overlay.append(dialog); document.body.append(overlay);
 
     const formValue = () => ({ name: nameInput.value, aliases: aliasesInput.value, domain: domainInput.value, searchUrlTemplate: templateInput.value });
-    const setStatus = (text, error = false) => { status.textContent = text || ''; status.classList.toggle('is-error', error); };
-    const clearErrors = () => dialog.querySelectorAll('.sps-error').forEach(node => { node.textContent = ''; });
+    const setStatus = (text, error = false) => { statusCopy = globalScope.TabOutI18n?.describeTranslation(text); status.textContent = text || ''; status.classList.toggle('is-error', error); };
+    const clearErrors = () => { activeError = null; dialog.querySelectorAll('.sps-error').forEach(node => { node.textContent = ''; }); };
     const showError = error => {
-      clearErrors(); const message = String(error?.message || '');
+      clearErrors(); activeError = error; const message = String(error?.message || '');
       if (/stale configuration/i.test(message)) { setStatus(copy.stale, true); closeEditor(); controller.load().then(renderList).catch(() => {}); return; }
       const key = validationErrorField(error);
       const target = dialog.querySelector(`[data-error-for="${key}"]`);
@@ -237,13 +203,13 @@
 
     function renderList() {
       list.replaceChildren(); const platforms = controller.list();
-      if (!platforms.length) { list.append(el('p', 'sps-empty', copy.empty)); return; }
+      if (!platforms.length) { list.append(localized('p', 'sps-empty', 'empty')); return; }
       platforms.forEach(platform => {
         const card = el('article', 'sps-card'); const info = el('div');
         info.append(el('strong', '', platform.name), el('span', 'sps-meta', platform.aliases.join(', ') || platform.domain), el('span', 'sps-meta', platform.domain));
         const cardActions = el('div', 'sps-card-actions');
-        const edit = el('button', 'sps-link', copy.edit); edit.type = 'button'; edit.addEventListener('click', () => openEditor(platform));
-        const remove = el('button', 'sps-link sps-danger', copy.remove); remove.type = 'button'; remove.addEventListener('click', async () => {
+        const edit = localized('button', 'sps-link', 'edit'); edit.type = 'button'; edit.addEventListener('click', () => openEditor(platform));
+        const remove = localized('button', 'sps-link sps-danger', 'remove'); remove.type = 'button'; remove.addEventListener('click', async () => {
           if (!globalScope.confirm(format(copy.confirmDelete, { name: platform.name }))) return;
           try { await controller.delete(platform.id); renderList(); setStatus(copy.deleted); } catch (error) { showError(error); }
         });
@@ -264,12 +230,12 @@
     }
     function renderImport(result, changed) {
       importPreview = result; preview.replaceChildren(); preview.hidden = false; editor.hidden = true;
-      preview.append(el('h3', '', copy.importTitle), el('p', changed ? 'sps-warning' : '', changed ? copy.importAgain : format(copy.importSummary, { added: result.added.length, conflicts: result.conflicts.length })));
-      for (const [label, values] of [[copy.added, result.added], [copy.conflicts, result.conflicts]]) {
-        const section = el('div', 'sps-preview-section'); section.append(el('strong', '', label), el('p', '', values.length ? values.join(', ') : copy.none)); preview.append(section);
+      preview.append(localized('h3', '', 'importTitle'), el('p', changed ? 'sps-warning' : '', changed ? copy.importAgain : format(copy.importSummary, { added: result.added.length, conflicts: result.conflicts.length })));
+      for (const [key, values] of [['added', result.added], ['conflicts', result.conflicts]]) {
+        const section = el('div', 'sps-preview-section'); section.append(localized('strong', '', key), el('p', '', values.length ? values.join(', ') : copy.none)); preview.append(section);
       }
-      const controls = el('div', 'sps-actions'); const cancelImport = el('button', 'sps-button', copy.cancel); cancelImport.type = 'button';
-      const confirmImport = el('button', 'sps-button sps-primary', copy.confirmImport); confirmImport.type = 'button'; controls.append(cancelImport, confirmImport); preview.append(controls);
+      const controls = el('div', 'sps-actions'); const cancelImport = localized('button', 'sps-button', 'cancel'); cancelImport.type = 'button';
+      const confirmImport = localized('button', 'sps-button sps-primary', 'confirmImport'); confirmImport.type = 'button'; controls.append(cancelImport, confirmImport); preview.append(controls);
       cancelImport.addEventListener('click', () => { controller.cancelImport(); preview.hidden = true; importPreview = null; });
       confirmImport.addEventListener('click', async () => {
         try {
@@ -298,6 +264,16 @@
       } catch (error) { showError(error); }
     });
     dialog.addEventListener('keydown', event => handleDialogKeydown(event, dialog, document.activeElement, closeModal));
+    globalScope.TabOutI18n?.onChange(() => {
+      dialog.querySelectorAll('[data-platform-copy]').forEach(node => { node.textContent = copy[node.dataset.platformCopy]; });
+      close.setAttribute('aria-label', copy.close);
+      queryInput.placeholder = copy.testQuery;
+      updateDestination(); renderList();
+      if (importPreview && !preview.hidden) renderImport(importPreview, false);
+      const descriptor = statusCopy;
+      if (descriptor) setStatus(globalScope.TabOutI18n.translateDescriptor(descriptor), status.classList.contains('is-error'));
+      if (activeError) showError(activeError);
+    });
     core.openSearchPlatformSettings = openModal;
   }
 
@@ -305,7 +281,8 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   globalScope.TabOutCore = Object.assign(globalScope.TabOutCore || {}, api);
   if (globalScope.document) {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSearchPlatformSettings, { once: true });
-    else initSearchPlatformSettings();
+    const initialize = async () => { await globalScope.TabOutI18n?.ready; initSearchPlatformSettings(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initialize, { once: true });
+    else initialize();
   }
 })(typeof globalThis !== 'undefined' ? globalThis : this);

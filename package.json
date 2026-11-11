@@ -1,12 +1,21 @@
 {
   "name": "tab-out",
-  "version": "2.1.0",
+  "version": "2.3.0",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "node --test",
-    "check": "node --check extension/app.js && node --check extension/background.js && node --check extension/i18n.js && node --check extension/config.js && node --check server/worker.mjs && node --check tools/chrome-e2e.mjs",
-    "package": "mkdir -p dist && cd extension && zip -qFSr ../dist/tab-out-2.1.0-store.zip . -x '*.DS_Store'",
+    "check": "node tools/check-javascript.mjs",
+    "package": "mkdir -p dist && cd extension && zip -qFSr ../dist/tab-out-2.3.0-store.zip . -x '*.DS_Store'",
     "e2e:chrome": "node tools/chrome-e2e.mjs",
+    "e2e:isolated": "node tools/run-chrome-e2e.mjs",
+    "e2e:projects": "node tools/run-chrome-e2e.mjs --projects-only",
+    "e2e:memory": "node tools/run-chrome-e2e.mjs --memory-only",
+    "e2e:i18n": "node tools/run-chrome-e2e.mjs --i18n-only",
+    "e2e:release": "node tools/run-chrome-e2e.mjs --release-only",
+    "evaluate:retrieval": "node tools/evaluate-memory-retrieval.mjs",
     "license:keygen": "node tools/license-keygen.mjs",
     "license:issue": "node tools/license-issue.mjs"
   }

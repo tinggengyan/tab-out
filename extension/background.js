@@ -5,6 +5,7 @@ importScripts(
   'src/domain/rule-engine.js',
   'src/storage/snapshot-repository.js',
   'src/storage/operation-repository.js',
+  'src/storage/project-normalization.js',
   'src/storage/workspace-repository.js',
   'src/storage/rule-repository.js',
   'src/api/chrome-session-adapter.js',
@@ -16,8 +17,15 @@ importScripts(
   'src/storage/search-platform-repository.js',
   'src/services/unified-search-service.js',
   'src/services/omnibox-search-service.js',
-  'src/services/telemetry-service.js'
+  'src/services/telemetry-service.js',
+  'src/storage/browsing-memory-repository.js',
+  'src/services/openai-compatible-client.js',
+  'src/services/browsing-memory-text.js',
+  'src/services/browsing-memory-search-service.js',
+  'src/services/browsing-memory-runtime.js'
 );
+
+TabOutCore.installBrowsingMemory(chrome);
 
 const backgroundSessionAdapter = TabOutCore.createChromeSessionAdapter(chrome, { deviceId: 'local' });
 const backgroundEntitlementService = TabOutCore.createEntitlementService({
@@ -244,12 +252,12 @@ captureBaselineIfEnabled().catch(() => {});
 refreshCommercialEntitlement().catch(() => {});
 
 async function buildOmniboxAdvancedItems() {
-  if (!await backgroundEntitlementService.has('search.advanced')) return [];
-  const stored = await chrome.storage.local.get(['workspacesV2', 'deferred', 'tabGroups', 'snapshotsV2']);
+  await backgroundWorkspaceRepository.list();
+  const stored = await chrome.storage.local.get(['workspacesV2', 'deferred', 'snapshotsV2']);
+  if (!await backgroundEntitlementService.has('search.advanced')) stored.snapshotsV2 = [];
   const items = [];
   (stored.workspacesV2 || []).forEach(workspace => workspace.entries.forEach(entry => items.push({ id: `workspace:${entry.id}`, type: 'workspace', title: entry.title, subtitle: workspace.name, url: entry.url })));
   (stored.deferred || []).filter(item => !item.dismissed).forEach(item => items.push({ id: `deferred:${item.id}`, type: 'deferred', title: item.title, url: item.url }));
-  (stored.tabGroups || []).forEach(group => group.tabs.forEach((tab, index) => items.push({ id: `group:${group.id}:${index}`, type: 'collected', title: tab.title, url: tab.url })));
   (stored.snapshotsV2 || []).forEach(snapshot => (snapshot.windows || []).forEach(window => (window.tabs || []).forEach(tab => {
     if (tab.restorable && TabOutCore.normalizeWebUrl(tab.url)) items.push({ id: `history:${snapshot.id}:${tab.id}`, type: 'history', title: tab.title, subtitle: snapshot.capturedAt, url: tab.url });
   })));
@@ -273,32 +281,18 @@ async function openTabOut(openSearch = false) {
     await chrome.windows.update(existing.windowId, { focused: true });
     await chrome.tabs.update(existing.id, { active: true });
     if (openSearch) chrome.runtime.sendMessage({ type: 'open-command' }).catch(() => {});
-  } else await chrome.tabs.create({ url });
+    return existing;
+  } else return chrome.tabs.create({ url });
 }
 
 async function collectCurrentWindow() {
-  const tabs = (await chrome.tabs.query({ currentWindow: true })).filter(tab => {
-    const url = tab.url || '';
-    return !/^(chrome|chrome-extension|edge|brave|about):/i.test(url);
-  });
-  const tabIds = tabs.map(tab => tab.id).filter(Number.isInteger);
-  if (!tabIds.length) return openTabOut(false);
-  const session = await backgroundSessionAdapter.captureTabs(tabIds);
-  const group = {
-    id: crypto.randomUUID(),
-    savedAt: new Date().toISOString(),
-    tabs: tabs.map(tab => ({ url: tab.url, title: tab.title || tab.url })),
-    session,
-  };
-  const { tabGroups = [] } = await chrome.storage.local.get('tabGroups');
-  await chrome.storage.local.set({ tabGroups: [group, ...tabGroups] });
-  try {
-    await backgroundOperationService.close(tabIds, { source: 'command-collect-window', collectedGroupId: group.id });
-  } catch (error) {
-    await backgroundTelemetry.error('collect', 'command_close_failed');
-    throw error;
-  }
-  await openTabOut(false);
+  // command-collect-window now opens a project preview; no background close occurs.
+  const tabs = (await chrome.tabs.query({ currentWindow: true })).filter(tab => !tab.incognito && TabOutCore.normalizeWebUrl(tab.pendingUrl || tab.url));
+  if (!tabs.length) return openTabOut(false);
+  const dashboard = await openTabOut(false);
+  await chrome.storage.local.set({ projectCaptureRequestV1: {
+    id: crypto.randomUUID(), targetTabId: dashboard.id, windowId: tabs[0].windowId, tabIds: tabs.map(tab => tab.id),
+  } });
 }
 
 chrome.action.onClicked.addListener(() => openTabOut(false));

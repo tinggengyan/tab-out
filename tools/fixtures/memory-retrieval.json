@@ -1,0 +1,42 @@
+{
+  "description": "Synthetic lexical retrieval corpus, declared before implementation. No user browsing data or real medical/financial advice. Each target is known from planted text; this is not semantic or real-world retrieval evaluation.",
+  "pages": [
+    ["ai", "Local AI model notes", "https://notes.example.test/local-models", "Comparing local AI models. Quantization reduces memory usage. An AI coding assistant can explain source code."],
+    ["api", "API request design", "https://docs.example.test/requests", "An API accepts a request and returns structured data. API errors should explain what can be retried."],
+    ["sql", "SQL query notebook", "https://database.example.test/joins", "SQL joins combine rows from tables. The query planner chooses indexes."],
+    ["go", "Go concurrency notes", "https://code.example.test/goroutines", "Go goroutines share a process. Channels coordinate concurrent work."],
+    ["rust", "Rust ownership", "https://code.example.test/ownership", "Rust ownership controls memory lifetime. Borrowing helps prevent data races."],
+    ["css", "CSS grid layout", "https://design.example.test/layout", "CSS grid defines rows and columns. The content area can scroll independently."],
+    ["markdown", "Markdown writing", "https://writing.example.test/format", "Markdown headings organize a document. Links need descriptive labels."],
+    ["accessibility", "无障碍界面笔记", "https://design.example.test/a11y", "无障碍设计包括键盘焦点、可读对比度和明确的控件名称。"],
+    ["retrieval", "混合检索实验", "https://reading.example.test/search", "混合检索结合词法匹配与语义理解。检索结果应提供可核对的出处。"],
+    ["photo", "摄影曝光的三个要素", "https://photo.example.test/exposure", "摄影曝光由光圈、快门和感光度共同决定。这是合成测试文章。"],
+    ["running", "跑步训练日志", "https://sport.example.test/log", "跑步训练记录：慢跑、休息和路线。本文仅为搜索测试，不提供健康建议。"],
+    ["bread", "酸面包烘焙记录", "https://food.example.test/bread", "酸面包面团经过发酵与折叠。记录室温和烘焙时间。"],
+    ["route", "路线规划试验", "https://maps.example.test/route", "路线规划可以比较步行距离与公交换乘。这是一条虚构路线。"],
+    ["static", "静态站点发布笔记", "https://web.example.test/publish", "静态站点从构建结果生成页面，需要检查相对资源路径。"],
+    ["plant", "窗边植物观察", "https://garden.example.test/window", "窗边植物在早晨获得光照。记录浇水时间和叶片颜色。"],
+    ["japanese", "日本語の検索メモ", "https://reading.example.test/ja", "日本語の記事を検索するための短い記録です。画面の文字を読みやすくします。"],
+    ["forum", "Forum thread about fountain pens", "https://forum.example.test/thread/42", "Alice: fountain pens work with bottled ink. Bob: I prefer a fine nib. Reply: thanks for sharing your writing sample."],
+    ["internal", "Authenticated release checklist", "https://internal.example.test/team/launch", "The release checklist records blockers, owners and evidence. This synthetic signed-in page has the same search coverage as public pages."],
+    ["cooking", "Lentil soup recipe", "https://kitchen.example.test/soup", "Lentil soup combines vegetables with lentils. This synthetic recipe is a test document."],
+    ["long", "Noise-heavy legacy article", "https://archive.example.test/old", "Home\nMenu\nSign in\nRecommendation\nCopyright 2026\nLegacy\nreading\nnotes\nabout\norbital\nmechanics\nand\nsatellite\ntracking.\nA\ncompact\nsnippet\nshould\nnot\noccupy\nthe\nwhole\nscreen."]
+  ],
+  "distractors": [
+    ["baike", "一首诗的百科页面", "https://baike.baidu.com/item/poem", "这首古诗描绘雨后山色与田园风景。"],
+    ["baidu", "交通查询", "https://www.baidu.com/s?wd=bus", "公交线路、站点和出发时间。"],
+    ["paid", "Ticket information", "https://tickets.example.test/paid", "The museum ticket is paid at the door."],
+    ["trail", "Trail guide", "https://travel.example.test/trail", "A trail runs along the coast near a railway station."],
+    ["capital", "Capital cities", "https://geography.example.test/capital", "This page lists capital cities and population sizes."],
+    ["golang-no", "Mango fruit notes", "https://food.example.test/mango", "Mango is a tropical fruit. This article describes its color."],
+    ["rustic", "Rustic house photography", "https://photo.example.test/rustic", "A rustic house stands next to a meadow."],
+    ["footer", "Garden journal", "https://garden.example.test/journal", "The tulips opened today.\nNavigation\nAI\nAPI\nSQL\nCSS\nRecommended articles\nCopyright 2026"]
+  ],
+  "queries": [
+    ["AI", "ai"], ["API", "api"], ["SQL", "sql"], ["Go", "go"],
+    ["Rust", "rust"], ["CSS", "css"], ["Markdown", "markdown"], ["无障碍", "accessibility"],
+    ["混合检索", "retrieval"], ["摄影曝光", "photo"], ["跑步训练", "running"], ["酸面包", "bread"],
+    ["路线规划", "route"], ["静态站点", "static"], ["窗边植物", "plant"], ["日本語", "japanese"],
+    ["fountain pens", "forum"], ["release checklist", "internal"], ["lentil soup", "cooking"], ["orbital mechanics", "long"]
+  ]
+}

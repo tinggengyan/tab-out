@@ -27,6 +27,15 @@
 let openTabs = [];
 let lastUndoOperationId = null;
 let toastTimer = null;
+let toastDescriptor = null;
+let upgradeStatusPlan = null;
+function renderUpgradeStatus(plan = upgradeStatusPlan) {
+  if (plan === null) return;
+  upgradeStatusPlan = plan;
+  document.getElementById('upgradeStatus').textContent = plan === 'free'
+    ? t('upgrade.freeStatus')
+    : t('upgrade.activeStatus', { plan });
+}
 let pendingRestoreSessionId = null;
 let pendingRetrySession = null;
 let pendingRetryGroupFailures = [];
@@ -34,10 +43,14 @@ let pendingRestoreJobId = null;
 let commandSearchIndex = null;
 let commandPlatforms = [];
 let commandBuildGeneration = 0;
+let commandQueryGeneration = 0;
+let commandMemoryRequestId = null;
+let commandWindowNames = new Map();
 let commandHasAdvanced = false;
 let commandSearchItems = new Map();
 let commandSelectedIndex = 0;
 let pendingImport = null;
+let importGeneration = 0;
 const escapeHtml = TabOutCore.escapeHtml;
 
 const sessionAdapter = TabOutCore.createChromeSessionAdapter(chrome, { deviceId: 'local' });
@@ -74,6 +87,27 @@ const operationService = TabOutCore.createOperationService({
   restoreSession: sessionAdapter.restoreSession,
   repository: operationRepository,
 });
+const projectService = TabOutCore.createProjectService({
+  chromeApi: chrome,
+  workspaceRepository,
+  sessionAdapter,
+  operationService,
+  getWorkspaceLimit: () => entitlementService.limit('workspaces.limit'),
+});
+function initializeProjectWorkbench() {
+  if (globalThis.tabOutProjectWorkbench) return;
+  globalThis.tabOutProjectWorkbench = TabOutCore.createProjectWorkbench({
+  chromeApi: chrome,
+  service: projectService,
+  workspaceRepository,
+  translate: t,
+  onOperation: operation => showToast(t('project.undoAvailable'), { undoOperationId: operation.id }),
+  onRefresh: () => renderStaticDashboard(),
+  exportBackup: () => exportConfig(),
+  undoOperation: operationId => undoTrackedOperation(operationId),
+  onDelete: id => deleteProject(id),
+  });
+}
 const collectionTransferService = TabOutCore.createCollectionTransferService({
   workspaceRepository,
   getGroups: () => getTabGroups(),
@@ -95,13 +129,13 @@ async function fetchOpenTabs() {
     const tabs = await chrome.tabs.query({});
     openTabs = tabs.map(t => ({
       id:       t.id,
-      url:      t.url,
-      title:    t.title,
+      url:      t.pendingUrl || t.url,
+      title:    t.title || t.pendingUrl || t.url,
       windowId: t.windowId,
       active:   t.active,
       lastAccessed: t.lastAccessed,
       // Flag Tab Out's own pages so we can detect duplicate new tabs
-      isTabOut: t.url === newtabUrl || t.url === 'chrome://newtab/',
+      isTabOut: (t.pendingUrl || t.url) === newtabUrl || (t.pendingUrl || t.url) === 'chrome://newtab/',
     }));
   } catch {
     // chrome.tabs API unavailable (shouldn't happen in an extension page)
@@ -495,6 +529,7 @@ function animateCardOut(card) {
 function showToast(message, options = {}) {
   const toast = document.getElementById('toast');
   const actionButton = document.getElementById('toastAction');
+  toastDescriptor = TabOutI18n.describeTranslation(message);
   document.getElementById('toastText').textContent = message;
   if (options.undoOperationId) {
     lastUndoOperationId = options.undoOperationId;
@@ -534,6 +569,26 @@ async function latestUndoableOperation(excludeId) {
   ) || null;
 }
 
+async function undoTrackedOperation(operationId) {
+  const operation = await operationService.undo(operationId);
+  const undoAge = Math.max(0, Date.now() - Date.parse(operation.createdAt));
+  telemetry.record('undo_used', { operation_kind: operation.kind || 'close', age_bucket: undoAge <= 10000 ? '0-10s' : undoAge <= 30000 ? '11-30s' : '31s+' }).catch(() => {});
+  if (operation.status === 'undone') {
+    // Undo restores browser pages; a saved project remains available.
+    if (operation.metadata?.deferredId) {
+      const { deferred = [] } = await chrome.storage.local.get('deferred');
+      await chrome.storage.local.set({ deferred: deferred.filter(item => item.id !== operation.metadata.deferredId) });
+    }
+  }
+  const previous = await latestUndoableOperation(operation.id);
+  const failed = operation.undoResult?.failed?.length || 0;
+  lastUndoOperationId = failed ? operation.id : previous?.id || null;
+  showToast(t(failed ? 'toast.undoFailed' : 'toast.undoSucceeded'), { undoOperationId: lastUndoOperationId });
+  await renderDashboard();
+  if (document.getElementById('historyOverlay').style.display !== 'none') await renderHistory();
+  return operation;
+}
+
 function trashItemTitle(item) {
   if (item.entityType === 'tabGroup') {
     const count = item.payload?.tabs?.length || 0;
@@ -543,8 +598,8 @@ function trashItemTitle(item) {
   return item.payload?.title || item.payload?.name || item.payload?.url || t(`trash.${item.entityType}`);
 }
 
-async function renderTrash() {
-  await trashRepository.purgeExpired();
+async function renderTrash({ purge = true } = {}) {
+  if (purge) await trashRepository.purgeExpired();
   const items = await trashRepository.list();
   const list = document.getElementById('trashList');
   const empty = document.getElementById('trashEmpty');
@@ -571,12 +626,11 @@ async function renderTrash() {
 }
 
 async function restoreTrashItem(id) {
-  const item = await trashRepository.restore(id);
+  const item = (await trashRepository.list()).find(entry => entry.id === id);
+  if (!item) return;
   if (item.entityType === 'tabGroup') {
-    const groups = await getTabGroups();
-    groups.unshift(item.payload);
-    await saveTabGroups(groups);
-    await renderTabGroups();
+    await workspaceRepository.importLegacyGroups([item.payload]);
+    await globalThis.tabOutProjectWorkbench?.refresh();
   } else if (item.entityType === 'deferred') {
     const { deferred = [] } = await chrome.storage.local.get('deferred');
     deferred.unshift({ ...item.payload, dismissed: false });
@@ -589,12 +643,13 @@ async function restoreTrashItem(id) {
   } else if (item.entityType === 'session') {
     await snapshotRepository.add(item.payload);
   } else if (item.entityType === 'workspace') {
-    const restored = await workspaceRepository.restore(item.payload);
-    for (const rule of item.payload.rules || []) {
-      await ruleRepository.create({ ...rule, workspaceId: restored.id });
+    const restored = await workspaceRepository.restore({ ...item.payload, restoredFromTrashId: id });
+    for (const [index, rule] of (item.payload.rules || []).entries()) {
+      await ruleRepository.restore({ ...rule, workspaceId: restored.id }, { trashId: id, sourceRuleId: rule.id || `index:${index}` });
     }
     await renderWorkspaces();
   }
+  await trashRepository.restore(id);
   await renderTrash();
 }
 
@@ -607,7 +662,7 @@ async function renderHistory() {
   list.innerHTML = sessions.map((session, sessionIndex) => {
     const locked = (session.type || 'automatic') === 'automatic' && automaticIndex++ >= automaticAccessLimit;
     const safeId = escapeHtml(session.id);
-    const date = new Date(session.capturedAt).toLocaleString(_currentLocale === 'zh-CN' ? 'zh-CN' : 'en-US');
+    const date = new Date(session.capturedAt).toLocaleString(_currentLocale);
     const summary = t('history.summary', {
       windows: session.stats?.windowCount || session.windows?.length || 0,
       tabs: session.stats?.tabCount || 0,
@@ -641,14 +696,25 @@ async function renderHistory() {
     const succeeded = operation.result?.succeeded || 0;
     const failed = operation.result?.failed?.length || 0;
     const undoable = ['complete', 'partially_failed'].includes(operation.status) && operation.result?.succeeded > 0 && Date.now() - Date.parse(operation.createdAt) <= 30000;
-    return `<div class="trash-item"><div class="trash-item-info"><div class="trash-item-title">${escapeHtml(t(`operation.${operation.kind || 'close'}`))}</div><div class="trash-item-meta">${escapeHtml(new Date(operation.createdAt).toLocaleString())} · ${escapeHtml(operation.status)} · ${t('operation.result', { succeeded, failed })}</div></div>${undoable ? `<button class="action-btn" data-action="undo-operation" data-operation-id="${escapeHtml(operation.id)}">${t('btn.undo')}</button>` : ''}</div>`;
+    return `<div class="trash-item"><div class="trash-item-info"><div class="trash-item-title">${escapeHtml(t(`operation.${operation.kind || 'close'}`))}</div><div class="trash-item-meta">${escapeHtml(new Date(operation.createdAt).toLocaleString(_currentLocale))} · ${escapeHtml(t(`operation.status.${({ partially_failed: "partial", undo_failed: "undo_partial", in_progress: "running" })[operation.status] || operation.status}`))} · ${t('operation.result', { succeeded, failed })}</div></div>${undoable ? `<button class="action-btn" data-action="undo-operation" data-operation-id="${escapeHtml(operation.id)}">${t('btn.undo')}</button>` : ''}</div>`;
   }).join('');
   operationList.style.display = operations.length ? 'block' : 'none';
   operationEmpty.style.display = operations.length ? 'none' : 'block';
 }
 
+async function deleteProject(id) {
+  const workspace = await workspaceRepository.get(id);
+  if (!workspace) return;
+  const rules = (await ruleRepository.list()).filter(rule => rule.workspaceId === id);
+  // Retain the payload before changing the active project or its automation.
+  const item = await trashRepository.add('workspace', id, { ...workspace, rules });
+  await workspaceRepository.remove(id);
+  for (const rule of rules) await ruleRepository.remove(rule.id);
+  showToast(t('toast.movedToTrash'), { undoTrashId: item.id });
+}
+
 async function renderWorkspaces() {
-  const [workspaces, collectedGroups] = await Promise.all([workspaceRepository.list(), getTabGroups()]);
+  const workspaces = await workspaceRepository.list();
   const list = document.getElementById('workspaceList');
   const empty = document.getElementById('workspaceEmpty');
   list.innerHTML = workspaces.map(workspace => {
@@ -658,7 +724,6 @@ async function renderWorkspaces() {
     ).join('');
     const targets = [
       ...workspaces.filter(item => item.id !== workspace.id).map(item => `<option value="workspace:${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`),
-      ...collectedGroups.map((group, index) => `<option value="group:${escapeHtml(group.id)}">${t('workspaces.collectedTarget', { n: index + 1 })}</option>`),
     ].join('');
     return `<article class="workspace-card" data-workspace-drop="${safeId}" style="--workspace-color:${escapeHtml(workspace.color || '#c8713a')}">
       <div class="workspace-card-top">
@@ -672,7 +737,7 @@ async function renderWorkspaces() {
           <button class="action-btn" data-action="open-all-workspace" data-workspace-id="${safeId}">${t('workspaces.openAll')}</button>
           <button class="action-btn" data-action="add-workspace-rule" data-workspace-id="${safeId}">${t('workspaces.addRule')}</button>
           <button class="action-btn" data-action="rename-workspace" data-workspace-id="${safeId}">${t('workspaces.edit')}</button>
-          <input class="workspace-color-input" type="color" value="${escapeHtml(workspace.color || '#c8713a')}" data-action="change-workspace-color" data-workspace-id="${safeId}" aria-label="Workspace color">
+          <input class="workspace-color-input" type="color" value="${escapeHtml(workspace.color || '#c8713a')}" data-action="change-workspace-color" data-workspace-id="${safeId}" aria-label="${t('workspaces.color')}">
           <button class="action-btn" data-action="pin-workspace" data-workspace-id="${safeId}">${t(workspace.pinned ? 'workspaces.unpin' : 'workspaces.pin')}</button>
           <button class="action-btn" data-action="move-workspace-up" data-workspace-id="${safeId}" aria-label="${t('workspaces.moveUp')}">↑</button>
           <button class="action-btn" data-action="move-workspace-down" data-workspace-id="${safeId}" aria-label="${t('workspaces.moveDown')}">↓</button>
@@ -686,15 +751,6 @@ async function renderWorkspaces() {
   }).join('');
   list.style.display = workspaces.length ? 'grid' : 'none';
   empty.style.display = workspaces.length ? 'none' : 'block';
-  const bridge = document.getElementById('workspaceCollectedBridge');
-  bridge.innerHTML = collectedGroups.length ? `<h3>${t('workspaces.collectedTitle')}</h3><p>${t('workspaces.collectedHelp')}</p><div class="workspace-collected-grid">${collectedGroups.map((group, groupIndex) => `
-    <article class="workspace-collected-card" data-group-drop="${escapeHtml(group.id)}">
-      <strong>${t('workspaces.collectedTarget', { n: groupIndex + 1 })}</strong>
-      <span>${t('tabGroups.tabCount', { n: group.tabs.length })}</span>
-      <div class="workspace-entry-preview">${group.tabs.slice(0, 20).map((tab, tabIndex) => `<label class="workspace-entry-chip" draggable="true" data-group-id="${escapeHtml(group.id)}" data-tab-idx="${tabIndex}" title="${escapeHtml(tab.url)}"><input type="checkbox" class="collected-entry-select" value="${tabIndex}">${escapeHtml(tab.title || tab.url)}</label>`).join('')}</div>
-      ${workspaces.length ? `<div class="workspace-bulk-actions"><select class="collected-target-select">${workspaces.map(workspace => `<option value="${escapeHtml(workspace.id)}">${escapeHtml(workspace.name)}</option>`).join('')}</select><button class="action-btn" data-action="move-selected-collected" data-group-id="${escapeHtml(group.id)}">${t('workspaces.moveSelected')}</button><button class="action-btn" data-action="copy-selected-collected" data-group-id="${escapeHtml(group.id)}">${t('workspaces.copySelected')}</button></div>` : ''}
-    </article>`).join('')}</div>` : '';
-
   const rules = await ruleRepository.list();
   const { workspaceSuggestionsV2 = [] } = await chrome.storage.local.get('workspaceSuggestionsV2');
   const workspaceNames = new Map(workspaces.map(workspace => [workspace.id, workspace.name]));
@@ -728,37 +784,25 @@ async function renderWorkspaces() {
   select._templates = templates;
 }
 
-async function saveTabsToWorkspace(tabs) {
-  if (!tabs.length) { showToast(t('workspaces.noSelection')); return; }
-  let workspaces = await workspaceRepository.list();
-  let workspace;
-  if (workspaces.length) {
-    const choices = workspaces.map((item, index) => `${index + 1}. ${item.name}`).join('\n');
-    const selected = prompt(`${t('workspaces.chooseTarget')}\n${choices}\n0. ${t('workspaces.createNew')}`);
-    if (selected === null) return;
-    const index = Number(selected) - 1;
-    workspace = workspaces[index];
-    if (!workspace && Number(selected) !== 0) return;
-  }
-  if (!workspace) {
-    if (workspaces.length >= await entitlementService.limit('workspaces.limit')) { showToast(t('workspaces.limit')); return; }
-    const name = prompt(t('workspaces.namePrompt'))?.trim();
-    if (!name) return;
-    workspace = await workspaceRepository.create({ name });
-  }
-  await workspaceRepository.addEntries(workspace.id, tabs.map(tab => ({ url: tab.url, title: tab.title || tab.url, pinned: tab.pinned })));
-  showToast(t('toast.workspaceSaved'));
+async function openProjectSavePreview(mode, tabs, options = {}) {
+  const ids = (tabs || []).map(tab => tab.id).filter(Number.isInteger);
+  if (tabs && !ids.length) { showToast(t('workspaces.noSelection')); return; }
+  await globalThis.tabOutProjectWorkbench?.begin(mode, options.workspaceId, {
+    ...(tabs ? { tabIds: ids, acrossWindows: true } : {}), ...options,
+  });
 }
+async function saveTabsToWorkspace(tabs) { return openProjectSavePreview('save', tabs); }
 
 async function buildCommandSearchIndex() {
   const generation = ++commandBuildGeneration;
   const tabs = await chrome.tabs.query({});
   const advanced = await entitlementService.has('search.advanced');
   const platforms = await TabOutCore.createSearchPlatformRepository(chrome.storage.local).list();
-  const [workspaces, snapshots, groups, saved] = advanced ? await Promise.all([
-    workspaceRepository.list(), snapshotRepository.list(), getTabGroups(), getSavedTabs(),
-  ]) : [[], [], [], { active: [], archived: [] }];
+  const [workspaces, snapshots, saved] = await Promise.all([
+    workspaceRepository.list(), advanced ? snapshotRepository.list() : [], getSavedTabs(),
+  ]);
   if (generation !== commandBuildGeneration) return;
+  commandWindowNames = new Map([...new Set(tabs.map(tab => tab.windowId))].sort((a, b) => a - b).map((id, index) => [id, index + 1]));
   commandPlatforms = platforms;
   commandHasAdvanced = advanced;
   const items = [];
@@ -776,9 +820,8 @@ async function buildCommandSearchIndex() {
     workspace.entries.forEach(entry => add({ type: 'workspace', title: entry.title, subtitle: workspace.name, url: entry.url, workspaceId: workspace.id, entryId: entry.id, addedAt: entry.addedAt }));
   });
   [...saved.active, ...saved.archived].forEach(item => add({ type: 'deferred', title: item.title, url: item.url, savedAt: item.savedAt }));
-  groups.forEach(group => group.tabs.forEach(tab => add({ type: 'collected', title: tab.title, url: tab.url, groupId: group.id, savedAt: group.savedAt })));
   snapshots.forEach(snapshot => snapshot.windows.forEach(window => window.tabs.forEach(tab => {
-    if (tab.restorable) add({ type: 'history', title: tab.title, url: tab.url, snapshotId: snapshot.id, subtitle: new Date(snapshot.capturedAt).toLocaleString(), capturedAt: snapshot.capturedAt });
+    if (tab.restorable) add({ type: 'history', title: tab.title, url: tab.url, snapshotId: snapshot.id, subtitle: new Date(snapshot.capturedAt).toLocaleString(_currentLocale), capturedAt: snapshot.capturedAt });
   })));
   commandSearchIndex = TabOutCore.createSearchIndex(items);
 }
@@ -787,24 +830,47 @@ function searchTypeLabel(type) {
   return t(`search.type${type.charAt(0).toUpperCase()}${type.slice(1)}`);
 }
 
-function renderCommandResults(query) {
+async function renderCommandResults(query) {
+  const generation = ++commandQueryGeneration;
   let command;
   try { command = TabOutCore.parsePlatformQuery(query, commandPlatforms); }
   catch { command = { kind: 'tabs', query }; }
   const parsed = commandHasAdvanced ? TabOutCore.parseSearchQuery(query) : { text: query };
-  const results = command.kind === 'platform'
+  let results = command.kind === 'platform'
     ? [{ type: 'platform', title: command.platform.name, platform: command.platform, url: command.url, query: command.query }]
     : [...(commandSearchIndex?.search(parsed.text, { limit: 30, types: parsed.types, after: parsed.after, before: parsed.before }) || []),
       ...TabOutCore.findSearchPlatforms(query, commandPlatforms).map(platform => ({ type: 'platform', title: platform.name, platform }))];
-  for (const key of commandSearchItems.keys()) if (key.startsWith('platform:')) commandSearchItems.delete(key);
+  // The memory worker owns the body index. Only this query's compact results reach the UI.
+  if (commandMemoryRequestId) chrome.runtime.sendMessage({ type: 'browsing-memory', action: 'cancel', payload: { requestId: commandMemoryRequestId } }).catch(() => {});
+  commandMemoryRequestId = null;
+  let memoryFailed = false;
+  if (command.kind !== 'platform' && parsed.text.trim() && (!parsed.types || parsed.types.includes('memory'))) {
+    document.getElementById('commandResults').setAttribute('aria-busy', 'true');
+    document.getElementById('commandResults').style.display = 'none';
+    document.getElementById('commandEmpty').style.display = 'block';
+    document.getElementById('commandEmpty').textContent = t('search.loading');
+    const requestId = `command:${Date.now()}:${generation}`;
+    commandMemoryRequestId = requestId;
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'browsing-memory', action: 'search', payload: { query: parsed.text, useAI: false, includeContent: false, days: 365, limit: 30, requestId } });
+      if (generation !== commandQueryGeneration) return;
+      if (!response?.ok) memoryFailed = true;
+      else results.push(...(response.data?.results || []).map(item => ({ ...item, type: 'memory', memoryId: item.id, id: `memory:${item.id}`, subtitle: item.url })));
+    } catch { memoryFailed = true; }
+  }
+  if (generation !== commandQueryGeneration) return;
+  document.getElementById('commandHint').textContent = t(memoryFailed ? 'search.memoryUnavailable' : 'search.hint');
+  for (const key of commandSearchItems.keys()) if (key.startsWith('platform:') || key.startsWith('memory:')) commandSearchItems.delete(key);
   results.forEach((item, index) => {
+    if (item.type === 'memory') commandSearchItems.set(item.id, item);
     if (item.type === 'platform') { item.id = `platform:${index}`; commandSearchItems.set(item.id, item); }
-    if (item.type === 'open') item.subtitle = `${item.url} · ${t('search.window', { n: item.windowId })}${item.duplicateCount > 1 ? ` · ${item.duplicateCount}×` : ''}`;
+    if (item.type === 'open') item.subtitle = `${item.url} · ${t('search.window', { n: commandWindowNames.get(item.windowId) || 1 })}${item.duplicateCount > 1 ? ` · ${item.duplicateCount}×` : ''}`;
     if (item.type === 'platform') item.subtitle = item.url ? `${t('search.searchPlatform')} · ${new URL(item.url).host} · ${item.query}` : `${item.platform.domain} · ${t('search.enterQuery')}`;
   });
   const container = document.getElementById('commandResults');
   const empty = document.getElementById('commandEmpty');
   commandSelectedIndex = 0;
+  container.setAttribute('aria-busy', 'false');
   container.innerHTML = results.map((item, index) => {
     const contextAction = item.snapshotId
       ? `<button class="command-context-action" data-action="restore-search-snapshot" data-search-id="${escapeHtml(item.id)}">${t('search.restore')}</button>`
@@ -816,7 +882,7 @@ function renderCommandResults(query) {
             ? `<button class="command-context-action" data-action="open-search-workspace" data-search-id="${escapeHtml(item.id)}">${t('search.showWorkspace')}</button>`
           : '';
     return `<div class="command-result-row"><button class="command-result ${index === 0 ? 'selected' : ''}" data-action="open-search-result" data-search-id="${escapeHtml(item.id)}">
-      <span class="command-result-main"><span class="command-result-title">${escapeHtml(item.title)}</span><span class="command-result-subtitle">${escapeHtml(item.subtitle || item.url || '')}</span></span>
+      <span class="command-result-main"><span class="command-result-title">${escapeHtml(item.title)}</span><span class="command-result-subtitle">${escapeHtml(item.subtitle || item.url || '')}</span>${item.snippet ? `<span class="command-result-snippet">${TabOutCore.renderMemorySnippetHTML(item, escapeHtml)}</span>` : ''}</span>
       <span class="command-result-type">${escapeHtml(item.type === 'open' ? t('search.switch') : item.type === 'platform' ? t('search.searchPlatform') : searchTypeLabel(item.type))}</span>
     </button>${contextAction}</div>`;
   }).join('');
@@ -828,13 +894,14 @@ function renderCommandResults(query) {
 async function openCommandPalette(query = '') {
   const overlay = document.getElementById('commandOverlay');
   const input = document.getElementById('commandInput');
+  if (!overlay.contains(document.activeElement)) overlay._returnFocus = document.activeElement;
   overlay.style.display = 'flex';
   input.value = query;
-  input.focus();
+  input.focus({ preventScroll: true });
   document.getElementById('commandEmpty').textContent = t('search.loading');
   try {
     await buildCommandSearchIndex();
-    renderCommandResults(input.value);
+    await renderCommandResults(input.value);
   } catch {
     commandSearchIndex = null;
     commandSearchItems = new Map();
@@ -844,10 +911,14 @@ async function openCommandPalette(query = '') {
 }
 
 function closeCommandPalette() {
+  commandQueryGeneration++;
+  if (commandMemoryRequestId) chrome.runtime.sendMessage({ type: 'browsing-memory', action: 'cancel', payload: { requestId: commandMemoryRequestId } }).catch(() => {});
+  commandMemoryRequestId = null;
   document.getElementById('commandOverlay').style.display = 'none';
 }
 
 async function renderSettings() {
+  document.getElementById('settingsLanguageSelect').value = TabOutI18n.preference;
   const [stored, entitlement, bytes] = await Promise.all([
     chrome.storage.local.get(['automaticSnapshotsEnabledV1', 'workspaceAutomationEnabledV1', 'telemetryOptInV1']),
     entitlementService.current(),
@@ -988,7 +1059,7 @@ function getGreeting() {
  * getDateDisplay() — "Friday, April 4, 2026"
  */
 function getDateDisplay() {
-  const locale = _currentLocale === 'zh-CN' ? 'zh-CN' : 'en-US';
+  const locale = _currentLocale;
   return new Date().toLocaleDateString(locale, {
     weekday: 'long',
     year:    'numeric',
@@ -1191,6 +1262,22 @@ const ICONS = {
    IN-MEMORY STORE FOR OPEN-TAB GROUPS
    ---------------------------------------------------------------- */
 let domainGroups = [];
+const selectedSaveTabIds = new Set();
+function updateTabsSelectionToolbar() {
+  const toolbar = document.getElementById('tabsSelectionToolbar');
+  if (!toolbar) return;
+  const chips = [...document.querySelectorAll('#openTabsMissions .page-chip[data-tab-id]')];
+  for (const chip of chips) {
+    const selected = selectedSaveTabIds.has(Number(chip.dataset.tabId)) && Boolean(TabOutCore.normalizeWebUrl(chip.dataset.tabUrl));
+    chip.classList.toggle('selected-for-workspace', selected);
+    chip.querySelector('.chip-select')?.setAttribute('aria-pressed', String(selected));
+  }
+  toolbar.hidden = !selectedSaveTabIds.size;
+  document.getElementById('tabsSelectionSummary').textContent = t('savedFlow.selected', { n: selectedSaveTabIds.size });
+  document.getElementById('tabsSelectionSaveBtn').textContent = t('savedFlow.saveSelected', { n: selectedSaveTabIds.size });
+  document.getElementById('tabsSelectionClearBtn').textContent = t('project.clearSelection');
+  document.getElementById('tabsSelectionHint').textContent = t('savedFlow.selectHint');
+}
 let openTabsViewMode = 'domain';
 
 
@@ -1254,11 +1341,11 @@ function buildOverflowChips(hiddenTabs, urlCounts = {}) {
     const faviconUrl = tab.url
       ? `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(tab.url)}&size=16`
       : '';
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
+    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" title="${safeTitle}">
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="">` : ''}
       <span class="chip-text">${safeLabel}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-select" data-action="select-workspace-tab" aria-pressed="false" title="${t('workspaces.selectTab')}">✓</button>
+        <button class="chip-action chip-select" data-action="select-workspace-tab" aria-pressed="false" ${TabOutCore.normalizeWebUrl(tab.url) ? '' : 'disabled'} aria-label="${t('savedFlow.selectPage')}" title="${t('savedFlow.selectPage')}">✓</button>
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="${t('btn.saveForLater')}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
@@ -1337,11 +1424,11 @@ function renderDomainCard(group) {
     const faviconUrl = tab.url
       ? `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(tab.url)}&size=16`
       : '';
-    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-url="${safeUrl}" title="${safeTitle}">
+    return `<div class="page-chip clickable${chipClass}" data-action="focus-tab" data-tab-id="${tab.id}" data-tab-url="${safeUrl}" title="${safeTitle}">
       ${faviconUrl ? `<img class="chip-favicon" src="${faviconUrl}" alt="">` : ''}
       <span class="chip-text">${safeLabel}</span>${dupeTag}
       <div class="chip-actions">
-        <button class="chip-action chip-select" data-action="select-workspace-tab" aria-pressed="false" title="${t('workspaces.selectTab')}">✓</button>
+        <button class="chip-action chip-select" data-action="select-workspace-tab" aria-pressed="false" ${TabOutCore.normalizeWebUrl(tab.url) ? '' : 'disabled'} aria-label="${t('savedFlow.selectPage')}" title="${t('savedFlow.selectPage')}">✓</button>
         <button class="chip-action chip-save" data-action="defer-single-tab" data-tab-url="${safeUrl}" data-tab-title="${safeTitle}" title="${t('btn.saveForLater')}">
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" /></svg>
         </button>
@@ -1352,21 +1439,7 @@ function renderDomainCard(group) {
     </div>`;
   }).join('') + (extraCount > 0 ? buildOverflowChips(uniqueTabs.slice(8), urlCounts) : '');
 
-  let actionsHtml = `
-    <button class="action-btn close-tabs domain-action" data-action="close-domain-tabs" data-domain-id="${stableId}">
-      ${ICONS.close}
-      <span class="domain-action-label">
-        <span>${t('btn.close')}</span>
-        <span>${tPlural('btn.tabCount', 'btn.tabCountPlural', tabCount)}</span>
-      </span>
-    </button>
-    <button class="collect-btn domain-action" data-action="collect-domain-tabs" data-domain-id="${stableId}">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg>
-      <span class="domain-action-label">
-        <span>${t('tabGroups.collectLead')}</span>
-        <span>${t('tabGroups.collectCount', { n: tabCount })}</span>
-      </span>
-    </button>`;
+  let actionsHtml = `<details class="tabs-card-menu"><summary>${t('savedFlow.more')}</summary><button class="project-button" data-action="select-domain-tabs" data-domain-id="${stableId}">${t('savedFlow.selectGroup')}</button><button class="project-button" data-action="close-domain-tabs" data-domain-id="${stableId}">${t('btn.close')} ${tabCount}</button></details>`;
 
   if (hasDupes) {
     const dupeUrlsEncoded = dupeUrls.map(([url]) => encodeURIComponent(url)).join(',');
@@ -1384,8 +1457,7 @@ function renderDomainCard(group) {
           <span class="mission-name">${escapeHtml(isLanding ? t('label.homepages') : (group.label || friendlyDomain(group.domain)))}</span>
           ${tabBadge}
           ${dupeBadge}
-          <button class="mission-inline-action" data-action="save-domain-workspace" data-domain-id="${stableId}">${t('workspaces.saveGroup')}</button>
-          <button class="mission-inline-action" data-action="save-selected-workspace">${t('workspaces.saveSelected')}</button>
+
         </div>
         <div class="mission-pages">${pageChips}</div>
         <div class="actions">${actionsHtml}</div>
@@ -1528,7 +1600,7 @@ function renderArchiveItem(item) {
 async function renderStaticDashboard() {
   // --- Set document language ---
   const htmlRoot = document.getElementById('htmlRoot');
-  if (htmlRoot) htmlRoot.lang = _currentLocale === 'zh-CN' ? 'zh-CN' : 'en';
+  if (htmlRoot) htmlRoot.lang = _currentLocale;
 
   // --- Localize static HTML elements ---
   const deferredTitle = document.getElementById('deferredTitle');
@@ -1607,11 +1679,12 @@ async function renderStaticDashboard() {
     } catch { return null; }
   }
 
+  const readableWindows = new Map([...new Set(realTabs.map(tab => tab.windowId))].sort((a, b) => a - b).map((id, index) => [id, index + 1]));
   for (const tab of realTabs) {
     try {
       if (openTabsViewMode === 'window') {
         const key = `__window-${tab.windowId}`;
-        if (!groupMap[key]) groupMap[key] = { domain: key, label: t('view.windowName', { n: tab.windowId }), windowId: tab.windowId, tabs: [] };
+        if (!groupMap[key]) groupMap[key] = { domain: key, label: `${t('view.windowName', { n: readableWindows.get(tab.windowId) })} · ${TabOutCore.savedDefaultName([tab])}`, windowId: tab.windowId, tabs: [] };
         groupMap[key].tabs.push(tab);
         continue;
       }
@@ -1669,9 +1742,12 @@ async function renderStaticDashboard() {
     const groupCount = openTabsViewMode === 'window'
       ? t('view.windowCount', { n: domainGroups.length })
       : tPlural('label.domain', 'label.domains', domainGroups.length);
-    openTabsSectionCount.innerHTML = `${escapeHtml(groupCount)} <span class="tabs-view-toggle"><button data-action="switch-tabs-view" data-view="domain" class="${openTabsViewMode === 'domain' ? 'active' : ''}">${t('view.domain')}</button><button data-action="switch-tabs-view" data-view="window" class="${openTabsViewMode === 'window' ? 'active' : ''}">${t('view.window')}</button></span> &nbsp;&middot;&nbsp; <button class="collect-btn" data-action="collect-all-tabs"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H4.5c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg> ${t('tabGroups.collectAll')}</button> <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} ${tPlural('btn.closeAll', 'btn.closeAllPlural', realTabs.length)}</button>`;
+    openTabsSectionCount.innerHTML = `${escapeHtml(groupCount)} <span class="tabs-view-toggle"><button data-action="switch-tabs-view" data-view="domain" class="${openTabsViewMode === 'domain' ? 'active' : ''}">${t('view.domain')}</button><button data-action="switch-tabs-view" data-view="window" class="${openTabsViewMode === 'window' ? 'active' : ''}">${t('view.window')}</button></span><details class="tabs-bulk-menu" id="tabsBulkMenu"><summary>${t('savedFlow.more')}</summary><button class="project-button" data-action="select-all-saveable">${t('savedFlow.selectAll')}</button><button class="project-button" data-action="close-all-open-tabs">${tPlural('btn.closeAll', 'btn.closeAllPlural', realTabs.length)}</button></details>`;
     openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
+    const openIds = new Set(realTabs.filter(tab => TabOutCore.normalizeWebUrl(tab.url)).map(tab => tab.id));
+    for (const id of selectedSaveTabIds) if (!openIds.has(id)) selectedSaveTabIds.delete(id);
+    updateTabsSelectionToolbar();
   } else if (openTabsSection) {
     openTabsSection.style.display = 'none';
   }
@@ -1693,10 +1769,10 @@ async function renderStaticDashboard() {
 
   // --- Render Tab Groups (OneTab) ---
   await renderTabGroups();
+  await globalThis.tabOutProjectWorkbench?.refresh();
 }
 
-async function renderDashboard() {
-  await TabOutCore.runStorageMigration(chrome.storage.local, { deviceId: 'local' });
+function localizeDashboardChrome() {
   document.getElementById('trashOpenBtn').textContent = t('btn.trash');
   document.getElementById('trashTitle').textContent = t('trash.title');
   document.getElementById('trashSubtitle').textContent = t('trash.subtitle');
@@ -1709,7 +1785,7 @@ async function renderDashboard() {
   document.getElementById('operationHistoryTitle').textContent = t('operation.title');
   document.getElementById('operationHistoryEmpty').textContent = t('operation.empty');
   document.getElementById('saveSnapshotBtn').textContent = t('btn.saveSnapshot');
-  document.getElementById('workspacesOpenBtn').textContent = t('workspaces.title');
+  document.getElementById('workspacesOpenBtn').textContent = t('saved.advanced');
   document.getElementById('workspacesTitle').textContent = t('workspaces.title');
   document.getElementById('workspacesSubtitle').textContent = t('workspaces.subtitle');
   document.getElementById('workspaceEmpty').textContent = t('workspaces.empty');
@@ -1738,7 +1814,7 @@ async function renderDashboard() {
     settingsRulesLabel: 'settings.rules', settingsDataTitle: 'settings.dataTitle', settingsDataText: 'settings.dataText',
     settingsExportBtn: 'settings.export', settingsImportBtn: 'settings.import', settingsPlanTitle: 'settings.planTitle',
     settingsUpgradeBtn: 'upgrade.open', settingsDeactivateBtn: 'settings.deactivate', settingsSyncTitle: 'settings.syncTitle',
-    settingsSyncStatus: 'settings.syncDeferred',
+    settingsSyncStatus: 'settings.syncDeferred', settingsMemoryTitle: 'memory.settings', settingsMemoryText: 'settings.memoryText', settingsMemoryBtn: 'settings.memoryOpen', settingsMemoryExportBtn: 'memory.export',
   };
   Object.entries(settingsText).forEach(([id, key]) => { document.getElementById(id).textContent = t(key); });
   const importText = {
@@ -1747,13 +1823,16 @@ async function renderDashboard() {
   };
   Object.entries(importText).forEach(([id, key]) => { document.getElementById(id).textContent = t(key); });
   const upgradeText = {
-    upgradeOpenBtn: 'upgrade.open', upgradeTitle: 'upgrade.title', upgradeSubtitle: 'upgrade.subtitle',
+    upgradeTitle: 'upgrade.title', upgradeSubtitle: 'upgrade.subtitle',
     proLifetimeTitle: 'upgrade.lifetimeTitle', proLifetimeText: 'upgrade.lifetimeText',
     syncPlanTitle: 'upgrade.syncTitle', syncPlanText: 'upgrade.syncText',
     buyLifetimeBtn: 'upgrade.buyLifetime', buySyncBtn: 'upgrade.buySync',
     activateLicenseBtn: 'upgrade.activate',
   };
   Object.entries(upgradeText).forEach(([id, key]) => { document.getElementById(id).textContent = t(key); });
+  const checkout = globalThis.TAB_OUT_CHECKOUT_URLS?.pro_lifetime || globalThis.TAB_OUT_CHECKOUT_URL;
+  document.getElementById('proLifetimeOffer').hidden = !/^https:\/\//i.test(checkout || '');
+  document.getElementById('syncOffer').hidden = true;
   document.getElementById('licenseTokenInput').placeholder = t('upgrade.tokenPlaceholder');
   const restoreText = {
     restoreTitle: 'restore.title', restoreModeNew: 'restore.modeNew', restoreModeMerge: 'restore.modeMerge',
@@ -1770,6 +1849,21 @@ async function renderDashboard() {
     onboardingStartBtn: 'onboarding.start',
   };
   Object.entries(onboardingText).forEach(([id, key]) => { document.getElementById(id).textContent = t(key); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(node => node.setAttribute('aria-label', t(node.dataset.i18nAria)));
+  document.getElementById('dashboardCredit').textContent = t('dashboard.credit');
+  document.getElementById('upgradePerYear').textContent = t('upgrade.perYear');
+  document.getElementById('settingsLanguageTitle').textContent = t('settings.languageTitle');
+  document.getElementById('settingsLanguageLabel').textContent = t('settings.languageLabel');
+  document.getElementById('settingsLanguageHint').textContent = t('settings.languageHint');
+  document.getElementById('settingsLanguageSelect').options[0].textContent = t('settings.languageAuto');
+  document.getElementById('settingsLanguageSelect').value = TabOutI18n.preference;
+}
+
+async function renderDashboard() {
+  await TabOutI18n.ready;
+  initializeProjectWorkbench();
+  await TabOutCore.runStorageMigration(chrome.storage.local, { deviceId: 'local' });
+  localizeDashboardChrome();
   const { onboardingV1 = false } = await chrome.storage.local.get('onboardingV1');
   if (!onboardingV1) document.getElementById('onboardingOverlay').style.display = 'flex';
   await renderStaticDashboard();
@@ -1793,6 +1887,7 @@ async function renderDashboard() {
     await openCommandPalette(params.get('search') || '');
     if (params.get('error')) showToast(t(params.get('error') === 'search.stale' ? 'search.stale' : 'search.failed'));
   }
+  await consumeProjectCaptureRequest();
   const { openCommandOnLoad = false } = await chrome.storage.local.get('openCommandOnLoad');
   if (openCommandOnLoad) {
     await chrome.storage.local.set({ openCommandOnLoad: false });
@@ -1816,6 +1911,25 @@ document.addEventListener('click', async (e) => {
 
   const action = actionEl.dataset.action;
 
+  if (action === 'clear-selected-tabs') { selectedSaveTabIds.clear(); updateTabsSelectionToolbar(); return; }
+  if (action === 'save-selected-tabs') {
+    const tabs = (await chrome.tabs.query({})).filter(tab => selectedSaveTabIds.has(tab.id) && TabOutCore.normalizeWebUrl(tab.pendingUrl || tab.url));
+    await saveTabsToWorkspace(tabs); return;
+  }
+  if (action === 'select-domain-tabs' || action === 'select-all-saveable') {
+    const tabs = action === 'select-all-saveable' ? await chrome.tabs.query({}) : domainGroups.find(item => `domain-${item.domain.replace(/[^a-z0-9]/g, '-')}` === actionEl.dataset.domainId)?.tabs || [];
+    for (const tab of tabs) if (TabOutCore.normalizeWebUrl(tab.pendingUrl || tab.url) && !tab.incognito) selectedSaveTabIds.add(tab.id);
+    actionEl.closest('details')?.removeAttribute('open'); updateTabsSelectionToolbar(); return;
+  }
+  if (action === 'open-memory-settings' || action === 'export-memory') {
+    document.getElementById('settingsOverlay').style.display = 'none';
+    globalThis.tabOutDashboardNavigation?.show('memory');
+    document.getElementById('memorySettings').open = true;
+    if (action === 'export-memory') document.getElementById('memoryExportBtn').click();
+    else document.getElementById('memorySettingsToggle').focus({ preventScroll: true });
+    document.getElementById('memorySettings').scrollIntoView({ block: 'start' });
+    return;
+  }
   if (action === 'open-platform-settings') { closeCommandPalette(); TabOutCore.openSearchPlatformSettings(); return; }
   if (action === 'open-command') {
     await openCommandPalette();
@@ -1862,7 +1976,7 @@ document.addEventListener('click', async (e) => {
     if (item.type === 'platform' && !item.url) {
       const input = document.getElementById('commandInput');
       input.value = `${item.platform.name} `;
-      renderCommandResults(input.value);
+      await renderCommandResults(input.value);
       input.focus();
       return;
     }
@@ -1920,6 +2034,7 @@ document.addEventListener('click', async (e) => {
   if (action === 'settings-export') { await exportConfig(); return; }
   if (action === 'settings-import') { document.getElementById('shortcutImportFile').click(); return; }
   if (action === 'cancel-import-preview') {
+    importGeneration++;
     pendingImport = null;
     document.getElementById('importPreviewOverlay').style.display = 'none';
     return;
@@ -1928,11 +2043,8 @@ document.addEventListener('click', async (e) => {
     if (!pendingImport) return;
     const strategy = document.querySelector('input[name="importStrategy"]:checked')?.value || 'merge';
     const current = await chrome.storage.local.get(Object.keys(pendingImport.data));
-    const update = strategy === 'merge'
-      ? TabOutCore.mergePortableData(current, pendingImport.data).data
-      : pendingImport.data;
     await chrome.storage.local.set({ importBackupV2: { createdAt: new Date().toISOString(), data: current } });
-    await chrome.storage.local.set(update);
+    await workspaceRepository.importData(pendingImport.data, { strategy });
     const count = pendingImport.itemCount;
     pendingImport = null;
     document.getElementById('importPreviewOverlay').style.display = 'none';
@@ -1952,9 +2064,7 @@ document.addEventListener('click', async (e) => {
   if (action === 'open-upgrade') {
     const entitlement = await entitlementService.current();
     telemetry.record('paywall_viewed', { feature: actionEl.dataset.feature || 'upgrade', plan: entitlement.plan }).catch(() => {});
-    document.getElementById('upgradeStatus').textContent = entitlement.plan === 'free'
-      ? t('upgrade.freeStatus')
-      : t('upgrade.activeStatus').replace('{plan}', entitlement.plan);
+    renderUpgradeStatus(entitlement.plan);
     document.getElementById('upgradeOverlay').style.display = 'flex';
     return;
   }
@@ -1964,7 +2074,8 @@ document.addEventListener('click', async (e) => {
   }
   if (action === 'start-checkout') {
     const configuredUrl = globalThis.TAB_OUT_CHECKOUT_URLS?.[actionEl.dataset.plan] || globalThis.TAB_OUT_CHECKOUT_URL;
-    if (!configuredUrl) { showToast(t('upgrade.checkoutUnavailable')); return; }
+    if (actionEl.dataset.plan === 'sync') return;
+    if (!configuredUrl || !/^https:\/\//i.test(configuredUrl)) { showToast(t('upgrade.checkoutUnavailable')); return; }
     const checkoutUrl = new URL(configuredUrl);
     if (!globalThis.TAB_OUT_CHECKOUT_URLS?.[actionEl.dataset.plan]) checkoutUrl.searchParams.set('plan', actionEl.dataset.plan);
     await chrome.tabs.create({ url: checkoutUrl.toString() });
@@ -2001,20 +2112,9 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (action === 'save-current-workspace') {
-    const workspaces = await workspaceRepository.list();
-    if (workspaces.length >= await entitlementService.limit('workspaces.limit')) {
-      showToast(t('workspaces.limit'));
-      return;
-    }
-    const name = prompt(t('workspaces.namePrompt'))?.trim();
-    if (!name) return;
-    const currentTabs = await chrome.tabs.query({ currentWindow: true });
-    const entries = currentTabs.filter(tab => TabOutCore.normalizeWebUrl(tab.url)).map(tab => ({
-      url: tab.url, title: tab.title, pinned: tab.pinned,
-    }));
-    await workspaceRepository.create({ name, entries });
-    await renderWorkspaces();
-    showToast(t('toast.workspaceSaved'));
+    document.getElementById('workspacesOverlay').style.display = 'none';
+    const current = await chrome.windows.getCurrent();
+    await openProjectSavePreview('save', (await chrome.tabs.query({ windowId: current.id })).filter(tab => TabOutCore.normalizeWebUrl(tab.pendingUrl || tab.url)), { windowId: current.id, acrossWindows: false });
     return;
   }
   if (action === 'open-workspace') {
@@ -2035,13 +2135,8 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (action === 'delete-workspace') {
-    const workspace = await workspaceRepository.remove(actionEl.dataset.workspaceId);
-    const rules = await ruleRepository.list();
-    const workspaceRules = rules.filter(item => item.workspaceId === workspace.id);
-    for (const rule of workspaceRules) await ruleRepository.remove(rule.id);
-    const trashItem = await trashRepository.add('workspace', workspace.id, { ...workspace, rules: workspaceRules });
+    await deleteProject(actionEl.dataset.workspaceId);
     await renderWorkspaces();
-    showToast(t('toast.movedToTrash'), { undoTrashId: trashItem.id });
     return;
   }
   if (action === 'rename-workspace') {
@@ -2073,9 +2168,9 @@ document.addEventListener('click', async (e) => {
       await workspaceRepository.removeEntries(workspace.id, entryIds);
     } else {
       const target = card.querySelector('.workspace-target-select')?.value || '';
-      const [targetType, targetId] = target.split(':');
+      const separator = target.indexOf(':');
+      const targetType = target.slice(0, separator), targetId = target.slice(separator + 1);
       if (targetType === 'workspace' && targetId) await workspaceRepository.transferEntries(workspace.id, targetId, entryIds, { copy: action === 'copy-selected-entries' });
-      if (targetType === 'group' && targetId) await collectionTransferService.workspaceToGroup(workspace.id, entryIds, targetId, { copy: action === 'copy-selected-entries' });
     }
     await renderWorkspaces();
     return;
@@ -2309,22 +2404,7 @@ document.addEventListener('click', async (e) => {
     if (!operationId) return;
     actionEl.disabled = true;
     try {
-      const operation = await operationService.undo(operationId);
-      const undoAge = Math.max(0, Date.now() - Date.parse(operation.createdAt));
-      telemetry.record('undo_used', { operation_kind: operation.kind || 'close', age_bucket: undoAge <= 10000 ? '0-10s' : undoAge <= 30000 ? '11-30s' : '31s+' }).catch(() => {});
-      if (operation.metadata?.collectedGroupId) {
-        await saveTabGroups((await getTabGroups()).filter(group => group.id !== operation.metadata.collectedGroupId));
-      }
-      if (operation.metadata?.deferredId) {
-        const { deferred = [] } = await chrome.storage.local.get('deferred');
-        await chrome.storage.local.set({ deferred: deferred.filter(item => item.id !== operation.metadata.deferredId) });
-      }
-      const previous = await latestUndoableOperation(operation.id);
-      lastUndoOperationId = previous?.id || null;
-      const failed = operation.undoResult?.failed?.length || 0;
-      showToast(t(failed ? 'toast.undoFailed' : 'toast.undoSucceeded'), { undoOperationId: failed ? null : previous?.id });
-      await renderDashboard();
-      if (document.getElementById('historyOverlay').style.display !== 'none') await renderHistory();
+      await undoTrackedOperation(operationId);
     } catch (error) {
       console.warn('[tab-out] Undo failed:', error);
       showToast(t('toast.undoFailed'));
@@ -2371,24 +2451,12 @@ document.addEventListener('click', async (e) => {
     e.stopPropagation();
     const chip = actionEl.closest('.page-chip');
     const selected = !chip.classList.contains('selected-for-workspace');
-    chip.classList.toggle('selected-for-workspace', selected);
-    actionEl.setAttribute('aria-pressed', String(selected));
+    const id = Number(chip.dataset.tabId);
+    if (!TabOutCore.normalizeWebUrl(chip.dataset.tabUrl)) return;
+    if (selected) selectedSaveTabIds.add(id); else selectedSaveTabIds.delete(id);
+    updateTabsSelectionToolbar();
     return;
   }
-  if (action === 'save-domain-workspace') {
-    const group = domainGroups.find(item => `domain-${item.domain.replace(/[^a-z0-9]/g, '-')}` === actionEl.dataset.domainId);
-    if (group) await saveTabsToWorkspace(group.tabs);
-    return;
-  }
-  if (action === 'save-selected-workspace') {
-    const tabs = [...actionEl.closest('.mission-card').querySelectorAll('.page-chip.selected-for-workspace')].map(chip => ({
-      url: chip.dataset.tabUrl,
-      title: chip.querySelector('.chip-text')?.textContent || chip.dataset.tabUrl,
-    })).filter(tab => TabOutCore.normalizeWebUrl(tab.url));
-    await saveTabsToWorkspace(tabs);
-    return;
-  }
-
   // ---- Close a single tab ----
   if (action === 'close-single-tab') {
     e.stopPropagation(); // don't trigger parent chip's focus-tab
@@ -2517,42 +2585,10 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  // ---- Collect (OneTab) a domain group ----
+  // Saving and putting away uses the same explicit project preview.
   if (action === 'collect-domain-tabs') {
-    const domainId = actionEl.dataset.domainId;
-    const domainGroup = domainGroups.find(g => {
-      return 'domain-' + g.domain.replace(/[^a-z0-9]/g, '-') === domainId;
-    });
-    if (!domainGroup) return;
-
-    // Save as a tab group
-    const tabIds = domainGroup.tabs.map(tab => tab.id).filter(Number.isInteger);
-    if (!tabIds.length) return;
-    const tabGroup = {
-      id: crypto.randomUUID(),
-      savedAt: new Date().toISOString(),
-      tabs: domainGroup.tabs.map(tab => ({ url: tab.url, title: tab.title })),
-      session: await sessionAdapter.captureTabs(tabIds),
-    };
-    const groups = await getTabGroups();
-    groups.unshift(tabGroup);
-    await saveTabGroups(groups);
-
-    // Close the tabs
-    const operation = await operationService.close(tabIds, { source: 'collect-domain', collectedGroupId: tabGroup.id });
-
-    if (showCloseResult(operation, t('toast.collected', { n: tabGroup.tabs.length }))) {
-      await renderDashboard();
-      await renderTabGroups();
-      return;
-    }
-
-    if (card) { playCloseSound(); animateCardOut(card); }
-
-    const idx = domainGroups.indexOf(domainGroup);
-    if (idx !== -1) domainGroups.splice(idx, 1);
-
-    await renderTabGroups();
+    const group = domainGroups.find(item => 'domain-' + item.domain.replace(/[^a-z0-9]/g, '-') === actionEl.dataset.domainId);
+    if (group) await openProjectSavePreview('park', group.tabs);
     return;
   }
 
@@ -2704,6 +2740,26 @@ document.addEventListener('input', async (e) => {
 });
 
 document.addEventListener('change', async (e) => {
+  if (e.target.id === 'settingsLanguageSelect') {
+    const select = e.target;
+    const hadFocus = document.activeElement === select;
+    const status = document.getElementById('settingsLanguageStatus');
+    select.disabled = true;
+    status.textContent = '';
+    status.classList.remove('is-error');
+    try {
+      await TabOutI18n.setLanguage(select.value);
+      status.textContent = t('settings.languageSaved');
+    } catch {
+      select.value = TabOutI18n.preference;
+      status.textContent = t('settings.languageFailed');
+      status.classList.add('is-error');
+    } finally {
+      select.disabled = false;
+      if (hadFocus && document.activeElement === document.body) select.focus({ preventScroll: true });
+    }
+    return;
+  }
   if (e.target.dataset.setting) {
     await chrome.storage.local.set({ [e.target.dataset.setting]: e.target.checked });
     return;
@@ -2790,165 +2846,57 @@ document.addEventListener('drop', async (e) => {
    ---------------------------------------------------------------- */
 
 async function getTabGroups() {
-  const { tabGroups = [] } = await chrome.storage.local.get('tabGroups');
-  return tabGroups;
+  await workspaceRepository.list();
+  return []; // Legacy records are normalized into projects before any consumer reads.
 }
-
-async function saveTabGroups(groups) {
-  await chrome.storage.local.set({ tabGroups: groups });
-}
-
+async function saveTabGroups(groups) { await workspaceRepository.importLegacyGroups(groups); }
 async function collectAllTabs() {
-  const realTabs = getRealTabs();
-  if (realTabs.length === 0) return;
-
-  const { collectPreviewSeenV1 = false } = await chrome.storage.local.get('collectPreviewSeenV1');
-  if (!collectPreviewSeenV1) {
-    if (!confirm(t('confirm.collectPreview', { n: realTabs.length }))) return;
-    await chrome.storage.local.set({ collectPreviewSeenV1: true });
-  }
-
-  const tabIds = realTabs.map(tab => tab.id).filter(Number.isInteger);
-
-  const group = {
-    id: crypto.randomUUID(),
-    savedAt: new Date().toISOString(),
-    tabs: realTabs.map(tab => ({ url: tab.url, title: tab.title })),
-    session: await sessionAdapter.captureTabs(tabIds),
-  };
-
-  const groups = await getTabGroups();
-  groups.unshift(group);
-  await saveTabGroups(groups);
-
-  const operation = await operationService.close(tabIds, { source: 'collect-all', collectedGroupId: group.id });
-
-  if (showCloseResult(operation, t('toast.collected', { n: group.tabs.length }))) {
-    await renderDashboard();
-    await renderTabGroups();
-    return;
-  }
-
-  playCloseSound();
-  document.querySelectorAll('#openTabsMissions .mission-card').forEach(c => {
-    shootConfetti(
-      c.getBoundingClientRect().left + c.offsetWidth / 2,
-      c.getBoundingClientRect().top + c.offsetHeight / 2
-    );
-    animateCardOut(c);
-  });
-
-  await renderTabGroups();
+  const current = await chrome.windows.getCurrent();
+  const tabs = (await chrome.tabs.query({ windowId: current.id })).filter(tab => TabOutCore.normalizeWebUrl(tab.pendingUrl || tab.url));
+  await openProjectSavePreview('park', tabs, { windowId: current.id, acrossWindows: false });
 }
 
+async function legacyProject(groupId) {
+  return (await workspaceRepository.list()).find(project => project.legacyGroupId === groupId || project.id === groupId);
+}
 async function restoreTabGroup(groupId) {
-  const groups = await getTabGroups();
-  const idx = groups.findIndex(g => g.id === groupId);
-  if (idx === -1) return;
-
-  const group = groups[idx];
-  if (group.session) await sessionAdapter.restoreSession(group.session, { mode: 'new-window' });
-  else for (const tab of group.tabs) await chrome.tabs.create({ url: tab.url, active: false });
-
-  groups.splice(idx, 1);
-  await saveTabGroups(groups);
-  showToast(t('toast.restored', { n: group.tabs.length }));
-  await renderTabGroups();
+  const project = await legacyProject(groupId);
+  if (!project) return;
+  globalThis.tabOutDashboardNavigation?.show('projects');
+  return globalThis.tabOutProjectWorkbench?.begin('resume', project.id);
 }
-
 async function deleteTabGroup(groupId) {
-  const groups = await getTabGroups();
-  const idx = groups.findIndex(g => g.id === groupId);
-  if (idx === -1) return;
-
-  const trashItem = await trashRepository.add('tabGroup', groupId, groups[idx]);
-  groups.splice(idx, 1);
-  await saveTabGroups(groups);
-  showToast(t('toast.groupDeleted'), { undoTrashId: trashItem.id });
-  await renderTabGroups();
+  const project = await legacyProject(groupId);
+  if (project) { await deleteProject(project.id); await globalThis.tabOutProjectWorkbench?.refresh(); }
 }
-
 async function restoreSingleGroupTab(groupId, tabIdx) {
-  const groups = await getTabGroups();
-  const group = groups.find(g => g.id === groupId);
-  if (!group || !group.tabs[tabIdx]) return;
-
-  await chrome.tabs.create({ url: group.tabs[tabIdx].url, active: false });
-  group.tabs.splice(tabIdx, 1);
-  delete group.session;
-
-  if (group.tabs.length === 0) {
-    const gIdx = groups.indexOf(group);
-    if (gIdx !== -1) groups.splice(gIdx, 1);
-  }
-
-  await saveTabGroups(groups);
-  await renderTabGroups();
+  const project = await legacyProject(groupId);
+  const entry = project?.entries[tabIdx];
+  if (entry) await TabOutCore.activateSearchResult({ type: 'workspace', url: entry.url }, chrome);
 }
 
-async function renderTabGroups() {
-  const column   = document.getElementById('tabGroupsColumn');
-  const listEl   = document.getElementById('tabGroupsList');
-  const emptyEl  = document.getElementById('tabGroupsEmpty');
-  const titleEl  = document.getElementById('tabGroupsTitle');
-  const countEl  = document.getElementById('tabGroupsCount');
-  const emptyTxt = document.getElementById('tabGroupsEmptyText');
+async function renderTabGroups() { await globalThis.tabOutProjectWorkbench?.refresh(); }
 
-  if (!column) return;
-
-  if (titleEl)  titleEl.textContent  = t('tabGroups.title');
-  if (emptyTxt) emptyTxt.textContent = t('tabGroups.empty');
-
-  const groups = await getTabGroups();
-
-  if (groups.length === 0) {
-    column.style.display = 'none';
-    return;
-  }
-
-  column.style.display = 'block';
-  if (countEl) countEl.textContent = t('tabGroups.tabCount', { n: groups.reduce((s, g) => s + g.tabs.length, 0) });
-  if (emptyEl) emptyEl.style.display = 'none';
-
-  const locale = _currentLocale === 'zh-CN' ? 'zh-CN' : 'en-US';
-
-  listEl.innerHTML = groups.map(group => {
-    const safeGroupId = escapeHtml(group.id);
-    const date = new Date(group.savedAt).toLocaleDateString(locale, {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-    const tabsHtml = group.tabs.map((tab, idx) => {
-      const faviconUrl = `chrome-extension://${chrome.runtime.id}/_favicon/?pageUrl=${encodeURIComponent(tab.url)}&size=16`;
-      const safeTitle = escapeHtml(tab.title || tab.url || '');
-      return `<div class="tab-group-tab" data-action="restore-group-tab" data-group-id="${safeGroupId}" data-tab-idx="${idx}" title="${safeTitle}">
-        <img class="tab-group-tab-favicon" src="${faviconUrl}" alt="">
-        <span class="tab-group-tab-title">${safeTitle}</span>
-        <button class="tab-group-tab-remove" data-action="remove-group-tab" data-group-id="${safeGroupId}" data-tab-idx="${idx}">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
-        </button>
-      </div>`;
-    }).join('');
-
-    return `<div class="tab-group-card" data-group-id="${safeGroupId}">
-      <div class="tab-group-header" data-action="toggle-group" data-group-id="${safeGroupId}">
-        <svg class="tab-group-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
-        <div class="tab-group-info">
-          <div class="tab-group-date">${date}</div>
-          <div class="tab-group-count">${t('tabGroups.tabCount', { n: group.tabs.length })}</div>
-        </div>
-        <div class="tab-group-actions">
-          <button class="tab-group-action restore" data-action="restore-group" data-group-id="${safeGroupId}">${t('tabGroups.restoreAll')}</button>
-          <button class="tab-group-action delete" data-action="delete-group" data-group-id="${safeGroupId}">${t('tabGroups.delete')}</button>
-        </div>
-      </div>
-      <div class="tab-group-tabs">${tabsHtml}</div>
-    </div>`;
-  }).join('');
-
-  listEl.querySelectorAll('.tab-group-tab-favicon').forEach(img => {
-    img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
-  });
-}
+document.addEventListener('click', async event => {
+  const button = event.target.closest('[data-saved-action="continue"]');
+  if (!button || button.disabled) return;
+  button.disabled = true;
+  const card = button.closest('.project-card');
+  try {
+    if (button.dataset.savedKind === 'collected') {
+      const result = await restoreTabGroup(button.dataset.savedId);
+      if (result) {
+        const current = [...document.querySelectorAll('.project-card[data-saved-id]')].find(node => node.dataset.savedId === button.dataset.savedId);
+        if (current) { current.querySelector('.saved-continue-status').textContent = t('saved.continueResult', result); current.querySelector('[data-saved-action]').textContent = t(result.failed ? 'project.retry' : 'saved.continue'); }
+      }
+    } else {
+      const { deferred = [] } = await chrome.storage.local.get('deferred');
+      const item = deferred.find(item => item.id === button.dataset.savedId);
+      if (item) { await TabOutCore.activateSearchResult({ type: 'deferred', url: item.url }, chrome); card.querySelector('.saved-continue-status').textContent = t('saved.assetKept'); }
+    }
+  } catch { card.querySelector('.saved-continue-status').textContent = t('search.failed'); }
+  finally { button.disabled = false; }
+});
 
 // ---- Tab Groups event handlers ----
 document.addEventListener('click', async (e) => {
@@ -3095,17 +3043,28 @@ async function exportConfig() {
   document.body.appendChild(a);
   a.click();
   a.remove();
+  try {
+    await chrome.storage.local.set({ projectBackupStateV1: { requestedAt: new Date().toISOString() } });
+    await globalThis.tabOutProjectWorkbench?.refresh();
+  } catch { /* export was requested; a reminder update must not turn it into a failed export */ }
   setTimeout(() => URL.revokeObjectURL(url), 1000);
   showToast(t('toast.exported'));
 }
 
 async function importConfig(file) {
+  const generation = ++importGeneration;
+  // Selecting a new file invalidates the previous confirmation, including when
+  // the replacement file is malformed, too large, or fails session validation.
+  pendingImport = null;
+  document.getElementById('importPreviewOverlay').style.display = 'none';
   if (file.size > 10 * 1024 * 1024) { showToast(t('toast.importFailed')); return; }
   let data;
   try {
     const text = await file.text();
+    if (generation !== importGeneration) return;
     data = JSON.parse(text);
   } catch {
+    if (generation !== importGeneration) return;
     showToast(t('toast.importFailed'));
     return;
   }
@@ -3122,6 +3081,7 @@ async function importConfig(file) {
     ['shortcuts', 'deferred', 'tabGroups'].filter(key => Array.isArray(data[key])).map(key => [key, validation.data[key]])
   );
   const current = await chrome.storage.local.get(Object.keys(importData));
+  if (generation !== importGeneration) return;
   const preview = TabOutCore.mergePortableData(current, importData);
   const itemCount = fullBackup
     ? validation.report?.items || Object.keys(importData).length
@@ -3268,6 +3228,21 @@ document.getElementById('dialogName')?.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('dialogUrl').focus();
 });
 
+// Menus belong to the current surface; Escape returns to their own summary.
+function closeOpenDashboardMenu(event, doc = document) {
+  if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return false;
+  if (doc.activeElement?.closest?.('.modal-overlay, .command-overlay')) return false;
+  const selector = 'details.tabs-card-menu[open], details.tabs-bulk-menu[open], details.project-card-menu[open], #projectDetail details[open]';
+  const focused = doc.activeElement?.closest?.(selector);
+  const menu = focused || [...doc.querySelectorAll(selector)].find(item => item.getClientRects().length > 0);
+  if (!menu) return false;
+  menu.open = false;
+  menu.querySelector(':scope > summary')?.focus({ preventScroll: true });
+  event.preventDefault();
+  event.stopPropagation();
+  return true;
+}
+
 // Escape key → close dialog or context menu
 document.addEventListener('keydown', (e) => {
   if (e.isComposing || e.keyCode === 229) return;
@@ -3299,6 +3274,7 @@ document.addEventListener('keydown', (e) => {
     const visibleModal = [...document.querySelectorAll('.modal-overlay')].reverse().find(item => item.style.display !== 'none');
     const closeButton = visibleModal?.querySelector('[data-action^="close-"], [data-action="cancel-restore"]');
     if (closeButton) { closeButton.click(); return; }
+    if (closeOpenDashboardMenu(e)) return;
     hideCtxMenu();
   }
   if (e.key === 'Tab') {
@@ -3317,11 +3293,15 @@ const modalFocusObserver = new MutationObserver(records => {
     const overlay = record.target;
     if (!(overlay instanceof HTMLElement) || !overlay.matches('.modal-overlay, .command-overlay')) continue;
     if (overlay.style.display !== 'none') {
-      overlay._returnFocus = document.activeElement;
-      queueMicrotask(() => overlay.querySelector('input:not([type="hidden"]), button, select')?.focus());
+      // Some dialogs focus synchronously before this observer's microtask runs.
+      if (!overlay.contains(document.activeElement)) overlay._returnFocus = document.activeElement;
+      queueMicrotask(() => {
+        if (overlay.style.display !== 'none') overlay.querySelector('input:not([type="hidden"]), button, select')?.focus({ preventScroll: true });
+      });
     } else if (overlay._returnFocus instanceof HTMLElement) {
-      overlay._returnFocus.focus();
+      const previous = overlay._returnFocus;
       overlay._returnFocus = null;
+      if (previous.isConnected && !previous.disabled && !overlay.contains(previous) && !previous.closest('[hidden]') && previous.getClientRects().length) previous.focus({ preventScroll: true });
     }
   }
 });
@@ -3334,8 +3314,56 @@ document.querySelectorAll('.modal-overlay, .command-overlay').forEach(overlay =>
 chrome.runtime.onMessage.addListener(message => {
   if (message?.type === 'open-command') openCommandPalette();
 });
-initShortcuts();
-renderDashboard();
+TabOutI18n.ready.then(async () => {
+  initializeProjectWorkbench();
+  await initShortcuts();
+  await renderDashboard();
+});
+
+TabOutI18n.onChange(async () => {
+  const selectedUrls = new Set([...document.querySelectorAll('#openTabsMissions .selected-for-workspace')].map(node => node.dataset.tabUrl));
+  const expanded = new Set([...document.querySelectorAll('#openTabsMissions .page-chips-overflow')].filter(node => node.style.display === 'contents').map(node => node.closest('.mission-card').id));
+  const expandedGroups = new Set([...document.querySelectorAll('.tab-group-card.expanded')].map(node => node.dataset.groupId));
+  const restoreSummary = document.getElementById('restoreSummary');
+  const restoreCopy = TabOutI18n.describeTranslation(restoreSummary.textContent);
+  const retrying = Boolean(pendingRetrySession);
+  localizeDashboardChrome();
+  renderUpgradeStatus();
+  if (restoreCopy) restoreSummary.textContent = TabOutI18n.translateDescriptor(restoreCopy);
+  if (retrying) document.getElementById('restoreConfirmBtn').textContent = t('restore.retry');
+  if (pendingImport) document.getElementById('importPreviewSummary').textContent = t('import.summary', { collections: Object.keys(pendingImport.data).length, items: pendingImport.itemCount, conflicts: pendingImport.conflicts });
+  await initShortcuts();
+  await renderStaticDashboard();
+  for (const node of document.querySelectorAll('#openTabsMissions .page-chip')) if (selectedUrls.has(node.dataset.tabUrl)) {
+    node.classList.add('selected-for-workspace'); node.querySelector('.chip-select')?.setAttribute('aria-pressed', 'true');
+  }
+  for (const node of document.querySelectorAll('#openTabsMissions .page-chips-overflow')) if (expanded.has(node.closest('.mission-card').id)) {
+    node.style.display = 'contents'; node.parentElement.querySelector('[data-action="expand-chips"]')?.remove();
+  }
+  for (const node of document.querySelectorAll('.tab-group-card')) if (expandedGroups.has(node.dataset.groupId)) node.classList.add('expanded');
+  const archiveSearch = document.getElementById('archiveSearch');
+  if (archiveSearch.value) archiveSearch.dispatchEvent(new Event('input', { bubbles: true }));
+  if (document.getElementById('historyOverlay').style.display !== 'none') await renderHistory();
+  if (document.getElementById('trashOverlay').style.display !== 'none') await renderTrash({ purge: false });
+  if (document.getElementById('workspacesOverlay').style.display !== 'none') {
+    const selected = [...document.querySelectorAll('#workspacesOverlay input[type=checkbox]')].map(input => input.checked);
+    const choices = [...document.querySelectorAll('#workspacesOverlay select')].map(input => input.value);
+    await renderWorkspaces();
+    document.querySelectorAll('#workspacesOverlay input[type=checkbox]').forEach((input, index) => { input.checked = selected[index] || false; });
+    document.querySelectorAll('#workspacesOverlay select').forEach((input, index) => { if (choices[index] !== undefined) input.value = choices[index]; });
+  }
+  if (document.getElementById('cleanupOverlay').style.display !== 'none') {
+    const checks = new Map([...document.querySelectorAll('.cleanup-checkbox')].map(input => [input.value, input.checked]));
+    await renderCleanup();
+    document.querySelectorAll('.cleanup-checkbox').forEach(input => { if (checks.has(input.value)) input.checked = checks.get(input.value); });
+  }
+  if (document.getElementById('settingsOverlay').style.display !== 'none') await renderSettings();
+  if (document.getElementById('commandOverlay').style.display !== 'none') { await buildCommandSearchIndex(); renderCommandResults(document.getElementById('commandInput').value); }
+  const toastAction = document.getElementById('toastAction');
+  if (toastDescriptor) document.getElementById('toastText').textContent = TabOutI18n.translateDescriptor(toastDescriptor);
+  if (toastAction.style.display !== 'none') toastAction.textContent = t('btn.undo');
+  globalThis.tabOutDashboardNavigation?.restoreLanguageScroll();
+});
 
 let commandRefreshTimer;
 function refreshVisibleCommandSearch() {
@@ -3350,3 +3378,64 @@ chrome.tabs.onCreated.addListener(refreshVisibleCommandSearch);
 chrome.tabs.onRemoved.addListener(refreshVisibleCommandSearch);
 chrome.tabs.onUpdated.addListener(refreshVisibleCommandSearch);
 chrome.storage.onChanged.addListener(refreshVisibleCommandSearch);
+
+let dashboardRefreshTimer;
+let dashboardRefreshRunning = false;
+let dashboardRefreshPending = false;
+function refreshOpenTabDashboard() {
+  dashboardRefreshPending = true;
+  clearTimeout(dashboardRefreshTimer);
+  dashboardRefreshTimer = setTimeout(async () => {
+    if (dashboardRefreshRunning) return;
+    dashboardRefreshRunning = true;
+    try {
+      while (dashboardRefreshPending) {
+        dashboardRefreshPending = false;
+        const selectedUrls = new Set([...document.querySelectorAll('#openTabsMissions .selected-for-workspace')]
+          .map(chip => chip.dataset.tabUrl));
+        const expandedCards = new Set([...document.querySelectorAll('#openTabsMissions .page-chips-overflow')]
+          .filter(overflow => overflow.style.display === 'contents')
+          .map(overflow => overflow.closest('.mission-card').id));
+        await renderStaticDashboard();
+        document.querySelectorAll('#openTabsMissions .page-chip[data-action="focus-tab"]').forEach(chip => {
+          if (!selectedUrls.has(chip.dataset.tabUrl)) return;
+          chip.classList.add('selected-for-workspace');
+          chip.querySelector('.chip-select')?.setAttribute('aria-pressed', 'true');
+        });
+        document.querySelectorAll('#openTabsMissions .page-chips-overflow').forEach(overflow => {
+          if (!expandedCards.has(overflow.closest('.mission-card').id)) return;
+          overflow.style.display = 'contents';
+          overflow.parentElement.querySelector('[data-action="expand-chips"]')?.remove();
+        });
+      }
+    } catch (error) {
+      console.warn('[tab-out] Dashboard refresh failed:', error);
+    } finally {
+      dashboardRefreshRunning = false;
+    }
+  }, 120);
+}
+chrome.tabs.onCreated.addListener(refreshOpenTabDashboard);
+chrome.tabs.onRemoved.addListener(refreshOpenTabDashboard);
+chrome.tabs.onUpdated.addListener((_tabId, changeInfo) => {
+  if (changeInfo.url !== undefined || changeInfo.title !== undefined || changeInfo.status === 'complete') {
+    refreshOpenTabDashboard();
+  }
+});
+
+async function consumeProjectCaptureRequest() {
+  const current = await chrome.tabs.getCurrent();
+  let request;
+  await TabOutCore.withProjectStorageLock(chrome.storage.local, async () => {
+    const stored = await chrome.storage.local.get('projectCaptureRequestV1');
+    if (stored.projectCaptureRequestV1?.targetTabId !== current?.id) return;
+    request = stored.projectCaptureRequestV1;
+    await chrome.storage.local.set({ projectCaptureRequestV1: null });
+  });
+  if (!request) return;
+  const tabs = (await chrome.tabs.query({})).filter(tab => request.tabIds.includes(tab.id));
+  await openProjectSavePreview('park', tabs, { windowId: request.windowId, acrossWindows: false });
+}
+chrome.storage.onChanged.addListener(changes => {
+  if (changes.projectCaptureRequestV1?.newValue && globalThis.tabOutProjectWorkbench) consumeProjectCaptureRequest().catch(() => showToast(t('project.error.unknown')));
+});

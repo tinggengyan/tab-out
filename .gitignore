@@ -10,3 +10,6 @@ docs/superpowers/
 
 # Stark 办公室本机配置
 CLAUDE.local.md
+
+# AI 任务截图证据（约 470MB）只保留在本地磁盘，不进 git
+docs/ai-tasks/*/evidence/

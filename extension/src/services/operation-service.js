@@ -24,11 +24,13 @@
     if (!captureTabs || !removeTabs || !restoreSession || !repository) {
       throw new TypeError('Operation service dependencies are required');
     }
+    const undoInFlight = new Map();
     return {
-      async close(tabIds, metadata = {}) {
+      async close(tabIds, metadata = {}, { beforeRemove } = {}) {
         if (!Array.isArray(tabIds) || tabIds.length === 0) {
           throw new TypeError('At least one tab id is required');
         }
+        if (beforeRemove !== undefined && typeof beforeRemove !== 'function') throw new TypeError('beforeRemove must be a function');
         const operationId = id ? id() : globalScope.crypto.randomUUID();
         const createdAt = now ? now() : new Date().toISOString();
         const before = await captureTabs([...new Set(tabIds)]);
@@ -42,6 +44,22 @@
           metadata,
         };
         await repository.put(operation);
+        // Keep executable guards out of persisted metadata. Capture and writing
+        // the pending record may yield long enough for tabs/projects to change.
+        // A rejected guard means we attempted no removal, including when a tab
+        // disappeared independently; do not infer successful closes from it.
+        if (beforeRemove) {
+          try { await beforeRemove(); }
+          catch (error) {
+            operation.status = 'partially_failed';
+            operation.result = {
+              succeeded: 0,
+              failed: operation.targetRefs.map(tabId => ({ tabId, code: error.code || 'close_precondition_failed' })),
+            };
+            await repository.put(operation);
+            throw error;
+          }
+        }
         try {
           await removeTabs([...new Set(tabIds)]);
           operation.status = 'complete';
@@ -67,17 +85,40 @@
         }
       },
 
-      async undo(operationId) {
-        const operation = await repository.get(operationId);
-        if (!operation || operation.kind !== 'close' || !['complete', 'partially_failed'].includes(operation.status) || !operation.result?.succeeded) {
-          throw new Error('Operation cannot be undone');
-        }
-        const result = await restoreSession(operation.before, { mode: 'merge' });
-        operation.status = 'undone';
-        operation.undoneAt = now ? now() : new Date().toISOString();
-        operation.undoResult = result;
-        await repository.put(operation);
-        return operation;
+      undo(operationId) {
+        if (undoInFlight.has(operationId)) return undoInFlight.get(operationId);
+        const pending = (async () => {
+          const operation = await repository.get(operationId);
+          if (!operation || operation.kind !== 'close' || !['complete', 'partially_failed'].includes(operation.status) || !operation.result?.succeeded) {
+            throw new Error('Operation cannot be undone');
+          }
+          const result = await restoreSession(operation.before, {
+            mode: 'original', groupFailures: operation.undoGroupFailures || [],
+            metadataFailures: operation.undoMetadataFailures || [],
+            windowMappings: operation.undoWindowMappings || {}, groupMappings: operation.undoGroupMappings || {},
+          });
+          operation.undoWindowMappings = { ...operation.undoWindowMappings, ...result.windowMappings };
+          operation.undoGroupMappings = { ...operation.undoGroupMappings, ...result.groupMappings };
+          operation.undoGroupFailures = (result.failed || []).filter(failure => failure.code === 'group_restore_failed');
+          operation.undoMetadataFailures = (result.failed || []).filter(failure => failure.code === 'tab_metadata_restore_failed');
+          const failures = result.failed || [];
+          if (failures.length) {
+            const failedRefs = new Set(failures.map(failure => String(failure.tabId)));
+            const failedIds = operation.before.windows.flatMap(window => window.tabs)
+              .filter(tab => failedRefs.has(String(tab.id))).map(tab => String(tab.id).replace(/^tab:/, ''));
+            operation.before = filterCapturedSession(operation.before, failedIds);
+            operation.status = 'partially_failed';
+          } else {
+            operation.status = 'undone';
+            operation.undoneAt = now ? now() : new Date().toISOString();
+          }
+          operation.undoResult = result;
+          await repository.put(operation);
+          return operation;
+        })();
+        const tracked = pending.finally(() => { undoInFlight.delete(operationId); });
+        undoInFlight.set(operationId, tracked);
+        return tracked;
       },
     };
   }

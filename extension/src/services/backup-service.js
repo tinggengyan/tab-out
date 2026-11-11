@@ -13,8 +13,13 @@
   const validateSearchPlatforms = typeof require === 'function'
     ? require('./platform-search-service.js').validateSearchPlatforms
     : globalScope.TabOutCore.validateSearchPlatforms;
+  const validSession = typeof require === 'function'
+    ? require('../domain/session.js').isValidSessionShape
+    : globalScope.TabOutCore.isValidSessionShape;
 
   function createPortableBackup(state, options = {}) {
+    const normalize = typeof require === 'function' ? require('../storage/project-normalization.js').normalizeProjectState : globalScope.TabOutCore.normalizeProjectState;
+    state = normalize(state, options).data;
     const data = {};
     for (const key of PORTABLE_KEYS) {
       if (state[key] !== undefined) data[key] = structuredClone(state[key]);
@@ -36,13 +41,11 @@
     if (keys.some(key => arrayKeys.has(key) && !Array.isArray(payload.data[key]))) return { ok: false, error: 'Invalid backup collection type' };
     if (keys.some(key => booleanKeys.has(key) && typeof payload.data[key] !== 'boolean')) return { ok: false, error: 'Invalid backup setting type' };
     if (payload.data.openTabsViewModeV1 !== undefined && !['domain', 'window'].includes(payload.data.openTabsViewModeV1)) return { ok: false, error: 'Invalid view setting' };
-    const workspacesValid = (payload.data.workspacesV2 || []).every(item => item && typeof item === 'object' && Array.isArray(item.entries));
-    const sessionsValid = [...(payload.data.sessionsV2 || []), ...(payload.data.snapshotsV2 || [])].every(session =>
-      session && typeof session === 'object' && Array.isArray(session.windows) && session.windows.every(window =>
-        Array.isArray(window.tabs) && (window.groups === undefined || Array.isArray(window.groups))
-      )
-    );
-    const groupsValid = (payload.data.tabGroups || []).every(group => group && Array.isArray(group.tabs));
+    const workspacesValid = (payload.data.workspacesV2 || []).every(item => item && typeof item === 'object' && Array.isArray(item.entries)
+      && (item.session === undefined || validSession(item.session)));
+    const sessionsValid = [...(payload.data.sessionsV2 || []), ...(payload.data.snapshotsV2 || [])].every(validSession);
+    const groupsValid = (payload.data.tabGroups || []).every(group => group && Array.isArray(group.tabs)
+      && (group.session === undefined || validSession(group.session)));
     if (!workspacesValid || !sessionsValid || !groupsValid) return { ok: false, error: 'Malformed backup entity' };
     let items = 0;
     function inspect(value, depth, field, parent) {

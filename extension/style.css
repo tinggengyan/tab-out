@@ -630,6 +630,10 @@ header {
   cursor: pointer;
 }
 
+.toast.visible .toast-action {
+  pointer-events: auto;
+}
+
 /* ---- Footer ---- */
 footer {
   margin-top: 48px;
@@ -1098,7 +1102,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 /* Open tabs column keeps the grid layout */
 .dashboard-columns .active-section {
   flex: 1;
-  min-width: 600px;
+  min-width: 0;
 }
 
 /* Saved for later column — fixed width on the right, scrolls independently */
@@ -1116,6 +1120,38 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   .dashboard-columns {
     flex-direction: column;
   }
+  .dashboard-columns .active-section {
+    min-width: 0;
+    width: 100%;
+  }
+  .active-section .section-header {
+    flex-wrap: wrap;
+  }
+  .active-section .section-count {
+    flex-basis: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    white-space: normal;
+  }
+  footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .footer-tools {
+    flex-wrap: wrap;
+    gap: 12px 16px;
+  }
+  .toast {
+    width: max-content;
+    max-width: calc(100vw - 24px);
+    padding: 12px 16px;
+  }
+  #toastText { min-width: 0; overflow-wrap: anywhere; }
+  .toast-action { flex-shrink: 0; }
   .deferred-column {
     width: 100%;
     position: static;
@@ -1878,3 +1914,9 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 .command-toolbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); }
 .command-toolbar span { flex: 1; }
 .command-toolbar button { flex-shrink: 0; }
+
+/* Language belongs to settings so primary tab actions stay above the fold. */
+.settings-language { display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.settings-language select { min-width:160px; max-width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--paper); color:var(--ink); font:inherit; }
+#settingsLanguageStatus { min-height:1.4em; }
+#settingsLanguageStatus.is-error { color:var(--accent); }

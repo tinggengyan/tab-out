@@ -127,3 +127,31 @@ test('capture never persists incognito windows even when the extension can see t
   assert.equal(session.windows.length, 1);
   assert.equal(session.windows.some(window => window.incognito), false);
 });
+
+test('original restore uses a surviving source window and original tab index', async () => {
+  const chrome = fakeChrome();
+  const adapter = createChromeSessionAdapter(chrome);
+  const session = await adapter.captureTabs([2]);
+  await adapter.restoreSession(session, { mode: 'original' });
+  const created = chrome.calls.find(call => call[0] === 'tabs.create')[1];
+  assert.equal(created.windowId, 9);
+  assert.equal(created.index, 1);
+});
+
+test('failed new-window creation never falls back into an unrelated current window', async () => {
+  const chrome = fakeChrome();
+  chrome.windows.create = async () => { throw new Error('cannot create window'); };
+  const adapter = createChromeSessionAdapter(chrome);
+  const session = await adapter.captureTabs([1, 2]);
+  const result = await adapter.restoreSession(session, { mode: 'new-window' });
+  assert.equal(result.succeeded, 0);
+  assert.equal(result.failed.filter(item => item.tabId).length, 2);
+  assert.equal(chrome.calls.filter(call => call[0] === 'tabs.create').length, 0);
+});
+
+test('capture refuses a grouped session when native group metadata cannot be read', async () => {
+  const chrome = fakeChrome();
+  delete chrome.tabGroups;
+  const adapter = createChromeSessionAdapter(chrome);
+  await assert.rejects(adapter.captureTabs([1]), { code: 'group_metadata_unavailable' });
+});

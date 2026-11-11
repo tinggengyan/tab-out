@@ -114,3 +114,45 @@ test('restore resolves id conflicts without overwriting an existing workspace', 
   assert.notEqual(restored.id, existing.id);
   assert.deepEqual((await repository.list()).map(item => item.name), ['Existing', 'Restored']);
 });
+
+test('project session persists atomically and survives trash restoration', async () => {
+  const storage = memoryStorage();
+  const repository = createWorkspaceRepository(storage);
+  const session = { windows: [{ sourceWindowId: 1, tabs: [{ id: 'tab:1', url: 'https://a.example/', title: 'A', index: 2, pinned: false, restorable: true }], groups: [] }] };
+  assert.equal(typeof repository.saveSession, 'function');
+  const saved = await repository.saveSession({ name: 'Project', session });
+  assert.equal(saved.session.windows[0].tabs[0].index, 2);
+  assert.equal(saved.entries.length, 1);
+  const removed = await repository.remove(saved.id);
+  const restored = await repository.restore(removed);
+  assert.deepEqual(restored.session, session);
+});
+
+test('entry edits invalidate project layout but metadata edits retain it', async () => {
+  const repository = createWorkspaceRepository(memoryStorage());
+  const session = { windows: [{ tabs: [{ id: 'tab:1', url: 'https://a.example/', title: 'A', restorable: true }], groups: [] }] };
+  assert.equal(typeof repository.saveSession, 'function');
+  const saved = await repository.saveSession({ name: 'Project', session });
+  const renamed = await repository.update(saved.id, { name: 'Renamed' });
+  assert.deepEqual(renamed.session, session);
+  await repository.addEntries(saved.id, [{ url: 'https://b.example/' }]);
+  assert.equal((await repository.get(saved.id)).session, undefined);
+});
+
+test('saveSession checks expected project version atomically across repository instances', async () => {
+  const { projectFingerprint } = require('../../extension/src/storage/workspace-repository.js');
+  const { buildSession } = require('../../extension/src/domain/session.js');
+  const storage = memoryStorage();
+  const first = createWorkspaceRepository(storage, { id: () => 'atomic-project' });
+  const second = createWorkspaceRepository(storage);
+  const session = buildSession({ windows: [{ id: 1, tabs: [{ id: 1, url: 'https://original.example/', index: 0 }] }] });
+  const saved = await first.saveSession({ name: 'Original', session });
+  const expectedFingerprint = projectFingerprint(saved);
+  const results = await Promise.allSettled([
+    first.saveSession({ workspaceId: saved.id, name: 'First editor', session, expectedFingerprint }),
+    second.saveSession({ workspaceId: saved.id, name: 'Second editor', session, expectedFingerprint }),
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  assert.equal(results.find(result => result.status === 'rejected').reason.code, 'preview_stale');
+  assert.equal((await first.get(saved.id)).name, 'First editor');
+});

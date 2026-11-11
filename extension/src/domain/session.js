@@ -14,6 +14,29 @@
     return `${prefix}:${String(value)}`;
   }
 
+  function isValidSessionShape(session) {
+    const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+    const reference = value => (typeof value === 'string' && value.length > 0) || Number.isInteger(value);
+    const optional = (value, key, check) => value[key] === undefined || check(value[key]);
+    const text = value => typeof value === 'string';
+    const boolean = value => typeof value === 'boolean';
+    const validTab = tab => record(tab) && typeof tab.url === 'string' && tab.url.length > 0
+      && ((/^https?:\/\//i.test(tab.url) && isRestorableUrl(tab.url))
+        || (tab.restorable === false && /^(chrome|chrome-extension|edge|brave|about|file):/i.test(tab.url)))
+      && optional(tab, 'id', reference) && optional(tab, 'groupRef', reference)
+      && optional(tab, 'title', text) && optional(tab, 'favIconUrl', text)
+      && optional(tab, 'index', value => Number.isInteger(value) && value >= 0)
+      && ['pinned', 'active', 'restorable'].every(key => optional(tab, key, boolean));
+    const validGroup = group => record(group) && Array.isArray(group.tabIds)
+      && group.tabIds.every(reference) && optional(group, 'ref', reference)
+      && optional(group, 'title', text) && optional(group, 'color', text) && optional(group, 'collapsed', boolean);
+    return record(session) && Array.isArray(session.windows) && session.windows.every(window =>
+      record(window) && Array.isArray(window.tabs) && window.tabs.every(validTab)
+      && (window.groups === undefined || (Array.isArray(window.groups) && window.groups.every(validGroup)))
+      && optional(window, 'sourceWindowId', Number.isInteger) && optional(window, 'state', text)
+      && ['focused', 'incognito'].every(key => optional(window, key, boolean)));
+  }
+
   function buildSession({ windows = [], groups = [], type = 'automatic', source, note = '', deviceId = 'local', capturedAt = new Date().toISOString(), id }) {
     const groupsById = new Map(groups.map(group => [group.id, group]));
     const mappedWindows = windows.map(window => {
@@ -94,7 +117,7 @@
     return (hash >>> 0).toString(16).padStart(8, '0');
   }
 
-  const api = { buildSession, sessionFingerprint };
+  const api = { buildSession, sessionFingerprint, isValidSessionShape };
   globalScope.TabOutCore = Object.assign(globalScope.TabOutCore || {}, api);
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : self);

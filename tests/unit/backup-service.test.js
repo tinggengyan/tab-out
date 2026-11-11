@@ -106,3 +106,33 @@ test('portable merge keeps local search platforms and omits conflicting imported
 function validateSearchPlatformsForTest(platforms) {
   return require('../../extension/src/services/platform-search-service.js').validateSearchPlatforms(platforms);
 }
+
+test('project backup preserves session layout and rejects malformed project sessions', () => {
+  const session = { windows: [{ sourceWindowId: 7, tabs: [{ id: 'tab:1', url: 'https://project.example/', title: 'Project', index: 3, pinned: false }], groups: [{ ref: 'group:2', title: 'Research', color: 'green', tabIds: ['tab:1'] }] }] };
+  const workspace = { id: 'project', name: 'Project', entries: [{ url: 'https://project.example/' }], session };
+  const validated = validatePortableBackup(createPortableBackup({ workspacesV2: [workspace] }));
+  assert.equal(validated.ok, true);
+  assert.deepEqual(validated.data.workspacesV2[0].session, session);
+  assert.equal(validatePortableBackup(createPortableBackup({ workspacesV2: [{ ...workspace, session: { windows: 'bad' } }] })).ok, false);
+});
+
+test('every portable session container rejects malformed nested members before repositories can receive them', () => {
+  const { invalidSessionFixtures } = require('../helpers/session-import-fixtures.js');
+  for(const {name,session} of invalidSessionFixtures()) {
+    for(const data of [
+      {workspacesV2:[{id:'w',entries:[],session}]},
+      {tabGroups:[{tabs:[{url:'https://good.example/'}],session}]},
+      {sessionsV2:[session]}, {snapshotsV2:[session]},
+    ]) assert.equal(validatePortableBackup({version:2,data}).ok,false,`${name}: ${Object.keys(data)[0]}`);
+  }
+});
+test('session validation accepts safe unsupported pages and omitted optional metadata without rewriting captured state', () => {
+  const {validSessionFixture}=require('../helpers/session-import-fixtures.js');
+  const session=validSessionFixture();
+  const result=validatePortableBackup({version:2,data:{workspacesV2:[{entries:[],session}]}});
+  assert.equal(result.ok,true);assert.deepEqual(result.data.workspacesV2[0].session,session);
+  for(const url of ['chrome://settings/','chrome-extension://example/index.html','edge://settings/','brave://settings/','about:blank','file:///tmp/example.txt']) {
+    assert.equal(validatePortableBackup({version:2,data:{snapshotsV2:[{windows:[{tabs:[{url,restorable:false}]}]}]}}).ok,true,url);
+  }
+  assert.equal(validatePortableBackup({version:2,data:{workspacesV2:[{entries:[],session:{windows:[{tabs:[{url:'https://minimal.example/'}]}]}}]}}).ok,true);
+});

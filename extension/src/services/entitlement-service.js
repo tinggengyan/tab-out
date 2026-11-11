@@ -27,7 +27,7 @@
     const subtle = options.subtle || globalScope.crypto?.subtle;
     const now = options.now || (() => Date.now());
     const key = options.key || 'entitlementV1';
-    const free = { plan: 'free', status: 'active', features: [], limits: { 'workspaces.limit': 3, 'history.automatic': 3, 'history.days': 7, 'manualSnapshots.limit': 3, 'trash.days': 7 } };
+    const free = { plan: 'free', status: 'active', features: [], limits: { 'workspaces.limit': Infinity, 'history.automatic': 3, 'history.days': 7, 'manualSnapshots.limit': 3, 'trash.days': 7 } };
     let importedPublicKey;
 
     async function publicKey() {
@@ -72,6 +72,7 @@
         return ['active', 'grace'].includes(entitlement.status) && entitlement.features.includes(feature);
       },
       async limit(name) {
+        if (name === 'workspaces.limit') return Infinity;
         const entitlement = await current();
         if (['active', 'grace'].includes(entitlement.status) && entitlement.limits?.[name] !== undefined) return entitlement.limits[name];
         if (['active', 'grace'].includes(entitlement.status) && entitlement.features.includes(`${name}.unlimited`)) return Infinity;

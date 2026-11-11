@@ -28,3 +28,16 @@ test('rule repository rejects invalid patterns and modes', async () => {
   await assert.rejects(() => repository.create({ workspaceId: 'w1', pattern: 'javascript:*' }), /invalid/i);
   await assert.rejects(() => repository.create({ workspaceId: 'w1', pattern: 'example.com', mode: 'close' }), /mode/i);
 });
+
+test('rule restoration identity keeps same-pattern rules and unrelated ID collisions distinct', async () => {
+  const unrelated = { id: 'restored-rule:trash-1:r1', workspaceId: 'other', pattern: 'docs.example', enabled: true, mode: 'suggest' };
+  const repository = createRuleRepository(memoryStorage({ workspaceRulesV2: [unrelated] }));
+  const input = { workspaceId: 'restored', pattern: 'docs.example', enabled: false, mode: 'auto' };
+  const one = await repository.restore(input, { trashId: 'trash-1', sourceRuleId: 'r1' });
+  const two = await repository.restore(input, { trashId: 'trash-1', sourceRuleId: 'r2' });
+  const retry = await repository.restore(input, { trashId: 'trash-1', sourceRuleId: 'r1' });
+  const otherTrash = await repository.restore(input, { trashId: 'trash-2', sourceRuleId: 'r1' });
+  assert.notEqual(one.id, unrelated.id); assert.notEqual(two.id, one.id); assert.notEqual(otherTrash.id, one.id);
+  assert.equal(retry.id, one.id); assert.equal((await repository.list()).length, 4);
+  assert.deepEqual(await repository.get(unrelated.id), unrelated);
+});

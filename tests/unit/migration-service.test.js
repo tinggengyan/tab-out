@@ -49,3 +49,37 @@ test('runStorageMigration leaves the legacy keys untouched when the new write fa
   assert.deepEqual(storage.inspect().deferred, legacy.deferred);
   assert.equal(storage.inspect().storageMeta, undefined);
 });
+
+test('a rejected nested legacy session aborts local migration without clearing assets and retries after correction', async () => {
+  let nested = {}; for (let index = 0; index < 20; index++) nested = { child: nested };
+  const initial = {
+    shortcuts: [{ id: 'shortcut', name: 'Keep shortcut', url: 'https://shortcut.example/' }],
+    deferred: [{ id: 'later', title: 'Keep later', url: 'https://later.example/' }],
+    tabGroups: [{ id: 'group', tabs: [{ url: 'https://project.example/' }], session: nested }],
+  };
+  const storage = memoryStorage(initial);
+  await assert.rejects(runStorageMigration(storage), /Cannot migrate saved data/);
+  assert.deepEqual(storage.inspect().shortcuts, initial.shortcuts);
+  assert.deepEqual(storage.inspect().deferred, initial.deferred);
+  assert.deepEqual(storage.inspect().tabGroups, initial.tabGroups);
+  assert.equal(storage.inspect().storageMeta, undefined);
+  assert.deepEqual(storage.inspect().migrationBackupV1, initial);
+  await storage.set({ tabGroups: [{ ...initial.tabGroups[0], session: { windows: [{ tabs: [{ url: 'https://project.example/' }], groups: [] }] } }] });
+  const retried = await runStorageMigration(storage);
+  assert.equal(retried.migrated, true);
+  assert.equal(storage.inspect().storageMeta.schemaVersion, 2);
+  assert.equal(storage.inspect().shortcuts[0].id, 'shortcut');
+  assert.equal(storage.inspect().deferred[0].id, 'later');
+});
+
+test('local schema migration rejects malformed session members, preserves original keys and retries valid correction', async () => {
+  const {invalidSessionFixtures,validSessionFixture}=require('../helpers/session-import-fixtures.js');
+  for(const {name,session} of invalidSessionFixtures()) {
+    const initial={shortcuts:[{id:'keep',name:'Shortcut',url:'https://keep.example/'}],deferred:[{id:'later',url:'https://later.example/'}],tabGroups:[{id:'group',tabs:[{url:'https://good.example/'}],session}]};
+    const area=memoryStorage(initial);
+    await assert.rejects(runStorageMigration(area),/Cannot migrate saved data/,name);
+    assert.deepEqual(area.inspect().shortcuts,initial.shortcuts,name);assert.deepEqual(area.inspect().deferred,initial.deferred,name);assert.deepEqual(area.inspect().tabGroups,initial.tabGroups,name);assert.equal(area.inspect().storageMeta,undefined,name);
+    await area.set({tabGroups:[{...initial.tabGroups[0],session:validSessionFixture()}]});
+    assert.equal((await runStorageMigration(area)).migrated,true,name);assert.equal(area.inspect().shortcuts[0].id,'keep',name);assert.equal(area.inspect().deferred[0].id,'later',name);
+  }
+});
