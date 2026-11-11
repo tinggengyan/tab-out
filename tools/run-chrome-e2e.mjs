@@ -20,12 +20,27 @@ async function chromeBinary() {
   throw new Error('Set CHROME_FOR_TESTING to an installed Chrome for Testing executable. This runner never uses your personal Chrome profile.');
 }
 
-// One suite today: the home guard, run once per interface language in its own disposable profile.
+// The home guard, run once per interface language, then search with bookmarks and history
+// granted; each suite gets its own disposable profile.
 // `--home-only` is accepted for the npm script and is also the default.
 const suites = [
   { name: 'home-zh-CN', script: 'tools/chrome-home-e2e.mjs', locale: 'zh-CN' },
   { name: 'home-en', script: 'tools/chrome-home-e2e.mjs', locale: 'en-US' },
+  { name: 'search-granted', script: 'tools/chrome-search-e2e.mjs', locale: 'zh-CN', granted: true },
 ];
+
+// A headless browser cannot click Chrome's permission prompt, so the granted suite loads a copy
+// whose optional permissions are made required. The key stays, so the extension ID does too.
+async function grantedCopy() {
+  const directory = await mkdtemp(join(tmpdir(), 'tab-out-granted-'));
+  await cp(resolve('extension'), directory, { recursive: true });
+  const file = join(directory, 'manifest.json');
+  const copy = JSON.parse(await readFile(file, 'utf8'));
+  copy.permissions = [...copy.permissions, ...copy.optional_permissions];
+  delete copy.optional_permissions;
+  await writeFile(file, JSON.stringify(copy, null, 2));
+  return directory;
+}
 const suiteNames = suites.map(suite => suite.name);
 const output = resolve(process.env.TAB_OUT_TEST_ARTIFACTS || await mkdtemp(join(tmpdir(), 'tab-out-verification-')));
 await mkdir(output, { recursive: true });
@@ -35,11 +50,11 @@ const extensionId = createHash('sha256').update(Buffer.from(manifest.key, 'base6
   .replace(/[0-9a-f]/g, value => String.fromCharCode(97 + parseInt(value, 16)));
 const results = [];
 
-for (const { name, script, locale } of suites) {
+for (const { name, script, locale, granted } of suites) {
   const profile = await mkdtemp(join(tmpdir(), `tab-out-${name}-`));
   const directory = join(output, name);
   await mkdir(directory, { recursive: true });
-  const extensionPath = resolve('extension');
+  const extensionPath = granted ? await grantedCopy() : resolve('extension');
   let chromeLog = '';
   const chrome = spawn(binary, ['--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
     '--window-size=1440,900', '--user-data-dir=' + profile, '--disable-extensions-except=' + extensionPath,
@@ -86,6 +101,7 @@ for (const { name, script, locale } of suites) {
       });
     }
     await rm(profile, { recursive: true, force: true });
+    if (granted) await rm(extensionPath, { recursive: true, force: true });
   }
 }
 await writeFile(join(output, 'result.json'), JSON.stringify({ ok: results.length === suiteNames.length && results.every(result => result.ok), extensionId, results }, null, 2));
