@@ -2194,12 +2194,15 @@ document.addEventListener('keydown', e => {
   openSearch();
 });
 
-searchEl('searchInput').addEventListener('input', () => {
+function onSearchQuery() {
   search.expanded.clear();
   search.selected = 0;
   renderSearch();
   refreshSearchHistory();
-});
+}
+// Pinyin being composed is not a query yet; compositionend searches the committed word.
+searchEl('searchInput').addEventListener('input', e => { if (!e.isComposing) onSearchQuery(); });
+searchEl('searchInput').addEventListener('compositionend', onSearchQuery);
 
 searchEl('searchInput').addEventListener('keydown', e => {
   // Enter also confirms a Chinese input method's candidate; leave that to the IME.
@@ -2213,7 +2216,10 @@ searchEl('searchInput').addEventListener('keydown', e => {
   }
 });
 
-searchEl('searchOverlay').addEventListener('keydown', e => {
+// Esc and Tab belong to the overlay while it is open, wherever the focus is.
+document.addEventListener('keydown', e => {
+  // Esc during an input method's composition only cancels the composition.
+  if (!search.open || e.isComposing || e.keyCode === 229) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
@@ -2225,14 +2231,16 @@ searchEl('searchOverlay').addEventListener('keydown', e => {
     const at = stops.indexOf(document.activeElement);
     stops[(at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length]?.focus();
   }
-});
+}, true);
 
 searchEl('searchOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeSearch();
 });
 
-// Clicking a result must not take the focus away from the input.
-searchEl('searchResults').addEventListener('mousedown', e => e.preventDefault());
+// A click anywhere in the panel but the box and the grant button keeps the keyboard in the box.
+searchEl('searchPanel').addEventListener('mousedown', e => {
+  if (!e.target.closest('input, button')) e.preventDefault();
+});
 searchEl('searchResults').addEventListener('mousemove', e => {
   const row = e.target.closest('[data-search-index]');
   if (row && Number(row.dataset.searchIndex) !== search.selected) selectSearchRow(Number(row.dataset.searchIndex));

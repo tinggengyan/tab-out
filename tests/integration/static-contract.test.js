@@ -106,9 +106,12 @@ test('the open-tabs view follows tab changes in other windows', () => {
 });
 
 test('search reads bookmarks and history but never changes them', () => {
+  const scripts = ['app.js', 'background.js', ...fs.readdirSync(path.join(root, 'extension/lib')).map(file => `lib/${file}`)];
+  for (const file of scripts) {
+    assert.doesNotMatch(read(file), /chrome\.bookmarks\.(create|update|move|remove|removeTree)\(/, `${file} must not change bookmarks`);
+    assert.doesNotMatch(read(file), /chrome\.history\.(addUrl|deleteUrl|deleteRange|deleteAll)\(/, `${file} must not change history`);
+  }
   const app = read('app.js');
-  assert.doesNotMatch(app, /chrome\.bookmarks\.(create|update|move|remove|removeTree)\(/, 'app.js must not change bookmarks');
-  assert.doesNotMatch(app, /chrome\.history\.(addUrl|deleteUrl|deleteRange|deleteAll)\(/, 'app.js must not change history');
   const requests = [...app.matchAll(/chrome\.permissions\.request\(/g)].length;
   assert.equal(requests, 1, 'permissions are requested in one place, when the user turns on bookmarks and history');
   assert.match(app, /permissions: \['history', 'bookmarks'\]/);

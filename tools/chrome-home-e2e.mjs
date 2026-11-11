@@ -357,7 +357,7 @@ try {
   const quokkaTab = url('quokka', 'open');
   const quokkaPage = url('quokkapage', 'one');
   await evaluate(`chrome.storage.local.get(['deferred', 'collectedGroupsV3']).then(state => chrome.storage.local.set({
-    deferred: [...state.deferred, { id: 'dq', url: ${JSON.stringify(url('blog', 'quokka'))}, title: 'Quokka reading', savedAt: new Date().toISOString(), completed: false, dismissed: false }],
+    deferred: [...state.deferred, { id: 'dq', url: ${JSON.stringify(url('blog', 'quokka'))}, title: 'Quokka reading 错误处理', savedAt: new Date().toISOString(), completed: false, dismissed: false }],
     collectedGroupsV3: [{ id: 'zoo', name: 'Quokka trip', savedAt: new Date().toISOString(), tabs: [
       { url: ${JSON.stringify(quokkaPage)}, title: 'Quokka facts' },
       { url: ${JSON.stringify(url('other', 'two'))}, title: 'Unrelated page' },
@@ -386,6 +386,8 @@ try {
 
   await openByButton();
   assert.ok((await evaluate(`document.getElementById('searchMessage').textContent`)).length > 0, 'an empty search shows a hint');
+  await click('.search-esc');
+  assert.equal(await evaluate(`document.activeElement?.id`), 'searchInput', 'a click inside the panel keeps the keyboard in the box');
   await key('Escape', 'Escape', 27);
   await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
   assert.equal(await evaluate(`document.activeElement?.id`), 'searchTrigger', 'focus returns to the search button');
@@ -394,6 +396,17 @@ try {
   await waitFor(overlayOpen, '"/" opens the overlay');
   assert.equal(await evaluate(`document.getElementById('searchInput').value`), '', '"/" is not typed into the box');
   await waitFor(`!document.getElementById('searchGrant').hidden`, 'sources loaded');
+
+  // a Chinese input method: pinyin being composed is not searched, esc only cancels the
+  // composition, and the committed word is searched
+  await send('Input.imeSetComposition', { text: 'cuo wu', selectionStart: 6, selectionEnd: 6 });
+  await pause(300);
+  assert.equal(await evaluate(`document.querySelector('#searchMessage .search-none') === null`), true, 'pinyin being composed is not searched');
+  await key('Escape', 'Escape', 27);
+  await pause(200);
+  assert.equal(await evaluate(`document.getElementById('searchOverlay').hidden`), false, 'esc while composing leaves the overlay open');
+  await send('Input.insertText', { text: '错误' });
+  await waitFor(`document.querySelector('[data-search-group="saved"]') !== null`, 'the committed word is searched');
 
   await typeQuery('quokka');
   await waitFor(`document.querySelectorAll('#searchResults [data-search-group]').length === 3`, 'three groups');
@@ -411,10 +424,17 @@ try {
   await openByButton();
   await typeQuery('quokka facts');
   await waitFor(`document.querySelector('#searchResults [data-search-kind]')?.dataset.searchKind === 'stashPage'`, 'one stashed page');
+  // The record changes behind the open overlay: a page is inserted in front of the one we found.
+  const inserted = url('other', 'zero');
+  await evaluate(`chrome.storage.local.get('collectedGroupsV3').then(({ collectedGroupsV3 }) => chrome.storage.local.set({
+    collectedGroupsV3: collectedGroupsV3.map(record => record.id === 'zoo' ? { ...record, tabs: [{ url: ${JSON.stringify(inserted)}, title: 'Inserted first' }, ...record.tabs] } : record) }))`);
   await key('Enter', 'Enter', 13);
   await waitForSite('quokkapage', 1);
   await waitFor(`chrome.storage.local.get('collectedGroupsV3').then(({ collectedGroupsV3 }) =>
     !collectedGroupsV3.find(record => record.id === 'zoo').tabs.some(page => page.url === ${JSON.stringify(quokkaPage)}))`, 'the opened page leaves its record');
+  assert.deepEqual(await evaluate(`chrome.storage.local.get('collectedGroupsV3').then(({ collectedGroupsV3 }) =>
+    collectedGroupsV3.find(record => record.id === 'zoo').tabs.map(page => page.title))`), ['Inserted first', 'Unrelated page', XSS_TITLE + ' quokka'],
+    'only that page leaves the record, even after the record changed');
 
   await openByButton();
   await typeQuery('quokka trip');

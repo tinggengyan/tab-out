@@ -46,9 +46,18 @@ try {
   assert.equal(await evaluate(`chrome.permissions.contains({ permissions: ['history', 'bookmarks'] })`), true, 'this suite needs the granted copy');
 
   // ---- Fixture: two pages only in history, one open page (also in history), bookmarks ----
+  const ancient = url('hist', 'quokka-ancient');
   const older = url('hist', 'quokka-facts');
   const newer = url('hist', 'quokka-old');
   const openPage = url('live', 'quokka-open');
+  for (const visited of [ancient]) {
+    const id = await evaluate(`chrome.tabs.create({ url: ${JSON.stringify(visited)}, active: false }).then(tab => tab.id)`);
+    await waitFor(`chrome.tabs.get(${id}).then(tab => tab.status === 'complete' && tab.title.includes('quokka'))`, `${visited} loaded`);
+    await pause(200);
+    await evaluate(`chrome.tabs.remove(${id})`);
+  }
+  // 3000 newer visits push that first one out of the recent history the overlay loads on open.
+  await evaluate(`Promise.all(Array.from({ length: 3000 }, (_, index) => chrome.history.addUrl({ url: 'https://filler.example/' + index })))`);
   for (const visited of [older, newer]) {
     const id = await evaluate(`chrome.tabs.create({ url: ${JSON.stringify(visited)}, active: false }).then(tab => tab.id)`);
     await waitFor(`chrome.tabs.get(${id}).then(tab => tab.status === 'complete' && tab.title.includes('quokka'))`, `${visited} loaded`);
@@ -89,11 +98,11 @@ try {
 
   // 3. history leaves out the page that is already open and lists the newest visit first
   const historyRows = await evaluate(`[...document.querySelectorAll('[data-search-group="history"] [data-search-kind="history"]')].map(row => row.querySelector('.search-title').textContent)`);
-  assert.deepEqual(historyRows, ['hist /quokka-old', 'hist /quokka-facts']);
+  assert.deepEqual(historyRows, ['hist /quokka-old', 'hist /quokka-facts', 'hist /quokka-ancient']);
   assert.ok(!(await groupText('history')).includes('quokka-open'), 'an open page is not repeated under history');
-  pass('3 history skips pages shown above and puts the newest visit first');
+  pass('3 history skips pages shown above, puts the newest visit first, and reaches visits older than the recent 3000');
 
-  // 4. typing on quickly: the results always match the last words typed
+  // 4. typing on: the results match the last words typed
   await typeQuery('quokka');
   await typeQuery('quokka facts');
   await pause(500);
