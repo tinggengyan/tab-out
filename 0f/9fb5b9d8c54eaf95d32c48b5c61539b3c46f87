@@ -1,0 +1,45 @@
+docs/ai-tasks/2026-11-11-soul-rebuild/design.md
+  s_0ffc54b9a07ee1::t_349e4db250fdb9 1-216
+docs/ai-tasks/2026-11-11-soul-rebuild/plan.md
+  s_0ffc54b9a07ee1::t_709019ddc35707 1-290
+docs/product-reviews/2026-11-11-soul-review/current-state-review.md
+  s_0ffc54b9a07ee1::t_50f8822932f06f 1-377
+docs/product-reviews/2026-11-11-soul-review/transformation-plan.md
+  s_0ffc54b9a07ee1::t_bcefaa9dcf029d 1-348
+extension/app.js
+  s_0ffc54b9a07ee1::t_c728739933467c 44-45,49,230-231,237,438,442,508,767-772,774,848-853,855,867-875,890,974,978-979,981-982,989,1004-1005,1030,1058,1136,1157,1241,1267,1280,1290,1302,1347,1349-1376,1388-1391,1393-1396,1408-1409,1451,1453-1454,1465,1519-1520,1522-1524,1527-1554,1556,1558-1570,1572,1574-1581,1583,1585-1598,1601-1607,1609-1662,1743,1746,1750,1789,1795-1803,1826-1829,1833-1851,1891,1928,1939,1994-1995
+extension/background.js
+  s_0ffc54b9a07ee1::t_ab2e17b8d4b5a0 86
+extension/config.js
+  s_0ffc54b9a07ee1::t_0721bad593a2f8 1-2
+extension/i18n.js
+  s_0ffc54b9a07ee1::t_042992aa2e260f 4-6,99,106-107,111,204,211-212,216,223,225,227-235,237-252,254-258,260-266,268
+extension/index.html
+  s_0ffc54b9a07ee1::t_ff88c0741a9894 59,91,124-129,131-135,137,140,142,144,163,166
+extension/manifest.json
+  s_0ffc54b9a07ee1::t_10470f1f14395c 5,8-17
+extension/style.css
+  s_0ffc54b9a07ee1::t_ea9f4bf1f3e686 901
+package.json
+  s_0ffc54b9a07ee1::t_18949c4f0c1f3a 3,11-12
+tests/integration/static-contract.test.js
+  s_0ffc54b9a07ee1::t_ad8246ee770f7d 7-47,50-51
+tools/check-javascript.mjs
+  s_0ffc54b9a07ee1::t_ff31dae260aeca 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "0f9fb5b9d8c54eaf95d32c48b5c61539b3c46f87",
+  "prompts": {},
+  "sessions": {
+    "s_0ffc54b9a07ee1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_0ffc54b9a07ee1",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
