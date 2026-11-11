@@ -4,113 +4,88 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-Tab Out (v2.3) is a Chrome Manifest V3 extension that overrides the new tab page. Beyond the original "open tabs grouped by domain" dashboard it now has Projects (named sets of pages with native window/tab-group layout), snapshots/undo/trash, unified search (Cmd/Ctrl+K, omnibox keyword `to`), opt-in Browsing Memory (captured page text in IndexedDB, optional user-configured OpenAI-compatible model), four UI languages, and offline-verified paid entitlements.
+Tab Out 3.0 is a Chrome Manifest V3 extension that overrides the new tab page. Its whole job, which the owner calls its soul, is:
 
-The extension itself has **no runtime dependencies, no bundler and no build step** — vanilla JS/CSS/HTML; keep it that way. Node is used only for tests and tooling. `server/worker.mjs` is an optional, separately deployed license Worker (see `server/README.md`), not part of the extension.
+- show open tabs grouped by site;
+- close a site, close duplicates, or stash a site in one click;
+- restore stashed pages later.
+
+Version 3.0 was rebuilt on 2026-11-11 from the original fork (`40579ec`) after the 2.x line drifted into a "browsing workbench". The 2.x code lives at tag `v2.3-workbench-archive`. Why it was rebuilt, and the decisions taken, are in `docs/product-reviews/2026-11-11-soul-review/` and `docs/ai-tasks/2026-11-11-soul-rebuild/` (`design.md` is the spec).
+
+**Scope guard:** new features do not go on the home page by default. Anything that adds always-visible controls, a network request, or a permission needs the owner's explicit decision. The home guard e2e (below) enforces the floor.
+
+No runtime dependencies, no bundler, no build step — vanilla JS/CSS/HTML. Keep it that way. Node is only for tests and tooling.
 
 ## Commands
 
 ```bash
-nvm use                       # .nvmrc selects Node 24; Node >= 22 required
-npm test                      # node --test over tests/**/*.test.js (unit + integration, ~2s)
-node --test tests/unit/schema.test.js                                  # one file
-node --test --test-name-pattern="backs up legacy" tests/unit/migration-service.test.js  # one test
-npm run check                 # node --check syntax pass over extension/, server/, tools/
-npm run package               # zip extension/ -> dist/tab-out-<version>-store.zip (dist/ is gitignored)
+nvm use                       # .nvmrc → Node 24; Node >= 22 required
+npm test                      # node --test: tests/unit + tests/integration (~0.5s)
+node --test tests/unit/close-undo.test.js                          # one file
+node --test --test-name-pattern="pinned" tests/unit/grouping.test.js   # one test
+npm run check                 # node --check over extension/, tools/, tests/
+npm run e2e:home              # home guard in headless Chrome for Testing (zh-CN + en)
+npm run package               # dist/tab-out-3.0.0-store.zip
 ```
 
-Real-browser e2e (`tools/run-chrome-e2e.mjs`) launches headless Chrome for Testing with a disposable profile and the unpacked extension, then runs one `tools/chrome-*-e2e.mjs` script per suite:
+`npm run e2e:home` (`tools/run-chrome-e2e.mjs` → `tools/chrome-home-e2e.mjs`) needs Chrome for Testing in `~/.cache/puppeteer/chrome` or `CHROME_FOR_TESTING=<binary>`. It runs each language in a disposable profile. `TAB_OUT_TEST_ARTIFACTS=<dir>` keeps the screenshots. It asserts the design.md §5 checks:
 
-- `npm run e2e:isolated` (regression + projects), `e2e:projects`, `e2e:memory`, `e2e:i18n`, `e2e:release`
-- Other suites only via flags: `node tools/run-chrome-e2e.mjs --layout-only | --unified-only | --saved-flow-only | --regression-only`
-- Needs Chrome for Testing in `~/.cache/puppeteer/chrome` or `CHROME_FOR_TESTING=<binary>`. Artifacts go to a temp dir or `TAB_OUT_TEST_ARTIFACTS`. `TAB_OUT_TEST_LOCALE=zh-CN` switches layout coverage to Chinese.
-- The memory suite pre-grants optional permissions in a temp copy of `extension/`, since headless Chrome can't approve permission prompts.
-- `npm run e2e:chrome` runs `chrome-e2e.mjs` directly against an already-running Chrome at `TAB_OUT_CDP_ORIGIN` (default `http://127.0.0.1:9333`); prefer the isolated runner.
+- first card ≤ 100px from the top;
+- ≤ 30 visible controls on the first screen;
+- card buttons on one row at 1440 and 1366;
+- zero http(s) requests from the page;
+- each core action takes one click and can be undone;
+- titles are escaped;
+- the v2.3 → v3 migration works.
 
-There is no CI workflow (`.github/` is empty), so run `npm test` and `npm run check` locally.
-
-Manual testing: load `extension/` unpacked in `chrome://extensions`. Refresh the new tab for page changes; reload the extension for `manifest.json`, `background.js` or content-script changes.
+Manual testing: load `extension/` unpacked. Refresh the new tab after page changes; reload the extension after `manifest.json` or `background.js` changes.
 
 ## Architecture
 
-### One module set, two runtimes, no ES modules
+- `extension/index.html` loads classic scripts in this order: `config.js` → `i18n.js` → `lib/*.js` → `app.js`. There are no ES modules.
+- `extension/lib/*.js` holds the pure, testable logic. Each file is an IIFE that merges its exports into `globalThis.TabOutLib`, sets `module.exports` for Node tests, and resolves dependencies via `require()` under Node or `TabOutLib` in the page. Load order in `index.html` must respect those dependencies (`config-io` needs `collected-store`).
 
-- **Dashboard page:** `extension/index.html` loads classic `<script>` tags in dependency order (`config.js`, `entitlement-config.js`, `locales/*.js`, `i18n.js`, `src/**`, then `app.js` last).
-- **Service worker:** `extension/background.js` loads a subset of the same `src/` files with `importScripts(...)`.
-- **Module pattern:** every `src/` file is an IIFE. It resolves dependencies with `require()` under Node or `globalScope.TabOutCore` in the browser, merges its exports into `globalThis.TabOutCore`, and sets `module.exports` for tests:
+  | File | Responsibility |
+  |---|---|
+  | `sanitize.js` | `escapeHtml`. Every title, URL or label put into `innerHTML` must go through it. |
+  | `grouping.js` | `groupTabsBySite` (homepages first, `config.js` overrides), `duplicateTabIds` (keeps a pinned, then the active, then the first copy), `faviconUrl` (Chrome `_favicon`; never Google). |
+  | `close-undo.js` | `createUndoController`. All user-tab closes go through `close(tabs, meta)`. It closes by tab id, skips pinned or vanished tabs, and remembers one operation for 30 seconds. `undo()` reopens tabs in their original window and index, or in a new window if that one is gone. |
+  | `collected-store.js` | Stash records under `collectedGroupsV3`, restored OneTab-style (restoring removes the record). `migrateLegacy` copies the owner's 2.x `workspacesV2` projects in once, idempotent by `sourceId`. |
+  | `config-io.js` | Export format v3. Import also accepts the original v1 file and the 2.x backup. |
 
-  ```js
-  (function initX(globalScope) {
-    const dep = typeof require === 'function' ? require('../storage/schema.js') : globalScope.TabOutCore;
-    const api = { ... };
-    globalScope.TabOutCore = Object.assign(globalScope.TabOutCore || {}, api);
-    if (typeof module !== 'undefined') module.exports = api;
-  })(typeof globalThis !== 'undefined' ? globalThis : self);
-  ```
+- `extension/app.js` renders the page and handles every `data-action` click through document-level event delegation:
+  - site cards: `close-domain-tabs`, `collect-domain-tabs`, `dedup-keep-one`;
+  - header: `dedup-all`, `collect-all-tabs`, `close-all-open-tabs`;
+  - right column: stash and save-for-later actions;
+  - toast: `undo-last`.
+- `extension/background.js` only keeps the toolbar badge (tab count) up to date.
+- `tests/integration/static-contract.test.js` guards these invariants:
+  - permissions are exactly `tabs, storage, favicon`, and the manifest `key` is unchanged (it fixes the extension ID, so users keep their storage);
+  - there are no external resources and no inline handlers;
+  - `app.js` calls `chrome.tabs.remove` only in `closeTabOutDupes`;
+  - `app.js` never names the legacy `tabGroups` key.
 
-- **Adding a module:** follow this pattern, then add it to `index.html` and/or the `importScripts` list in `background.js`, after the modules it depends on.
+## Data
 
-### Layers (`extension/src/`)
+`chrome.storage.local` keys used by v3:
 
-- `shared/sanitize.js` — `escapeHtml` and `normalizeWebUrl`; use them for any HTML output or stored URL.
-- `domain/` — pure session model and rule engine.
-- `storage/` — repositories built as `createXRepository(storageArea)`. `storageArea` is any `{get, set}`, so tests pass an in-memory fake. `schema.js` owns `CURRENT_SCHEMA_VERSION` and legacy sanitizing/migration. `browsing-memory-repository.js` uses IndexedDB.
-- `api/chrome-session-adapter.js` — wraps `chrome.tabs`/`windows`/`tabGroups` for capturing and restoring sessions.
-- `services/` — business logic as `createXService({...deps})` factories.
-- `ui/` — feature UIs (project workbench, saved library, browsing memory, search-platform settings, dashboard navigation), each with its own CSS file.
-- `content/browsing-memory-content.js` — content script. `browsing-memory-runtime.js` registers it dynamically only after the user opts in (optional `scripting` + host permissions).
+- `deferred`: save-for-later items, same format as the original.
+- `shortcuts`: left sidebar shortcuts.
+- `collectedGroupsV3`: stash records, `{ id, savedAt, name?, sourceId?, tabs: [{ url, title }] }`.
+- `soulMigrationV1`: marks the one-time 2.x migration as done.
+- `closeAllConfirmedV1`: "close all" has been confirmed once.
 
-The top-level files tie these together:
+Keys from 2.x (`workspacesV2`, `tabGroups`, snapshots, browsing-memory IndexedDB…) are deliberately left untouched. v3 never deletes them. The archived 2.x build empties `tabGroups` whenever it runs, which is why v3 stores stashes under its own key. Don't change an existing key's shape; add a new key plus a migration.
 
-- `app.js` (~3400 lines) — dashboard orchestration. It instantiates the repositories and services, renders the Tabs/Projects/Memory views, the command palette, overlays (history, trash, cleanup, upgrade, settings, restore, onboarding) and toast/undo.
-- `background.js` — maintains the toolbar badge, marks snapshots dirty on tab/window/group events, runs the `tab-out-maintenance` alarm every 6h, and handles the omnibox and the four manifest `commands`. It also hosts the Browsing Memory runtime (`TabOutCore.installBrowsingMemory(chrome)`).
+## Copy
 
-### Cross-context coordination
+`extension/i18n.js` has `en` and `zh-CN` dictionaries, which must have identical keys and placeholders (`tests/unit/i18n.test.js`). Use these terms consistently:
 
-- Page → service worker: `chrome.runtime.sendMessage({ type: 'browsing-memory', action, payload })`. Service worker → page: `{ type: 'open-command' }`. Content script → service worker: `browsing-memory-capture`.
-- Shared state lives in `chrome.storage.local`; the page refreshes via `chrome.storage.onChanged`.
-- Project writes can come from several contexts at once (dashboard tabs, background commands). They go through `withProjectStorageLock` (`navigator.locks`, in `storage/project-normalization.js`). Changes that span several keys must be committed in a single `storage.set`.
+| zh-CN | en |
+|---|---|
+| 站点 | site |
+| 收纳 / 已收纳 / 全部收纳 | Stash / Stashed / Stash all |
+| 稍后查看 | Saved for later |
+| 撤销 | Undo |
 
-### Storage
-
-- Keys carry a version suffix (`workspacesV2`, `interfaceLanguageV1`, `entitlementV1`, ...). Don't change an existing key's shape in place. Add a new key plus a migration that writes a backup first.
-- `storageMeta.schemaVersion` drives `runStorageMigration` (`services/migration-service.js`), which saves `migrationBackupV1` before rewriting `deferred`, `shortcuts` and `sessionsV2`.
-- Projects live in `workspacesV2`. Legacy `tabGroups` batches are normalized into it on read (`normalizeProjectState`), and the originals are kept in `projectMigrationBackupV1`.
-- `deferred` is the read-later list.
-- Browsing Memory page text is stored in IndexedDB, never in `chrome.storage.local`.
-
-### i18n
-
-- `i18n.js` contains the `en` and `zh-CN` dictionaries plus `t(key, params)` / `tPlural(...)`. `locales/zh-TW.js` and `locales/ja.js` register additional dictionaries on `globalThis.TabOutLocales`.
-- `_locales/*/messages.json` holds only the manifest name and description, which follow Chrome's own language.
-- All four dictionaries must have identical keys and placeholders, with no English fallback merge. `tests/unit/i18n.test.js` enforces this, so every new UI string needs entries in all four.
-
-### Entitlements
-
-- `services/entitlement-service.js` verifies signed P-256 tokens offline against `TAB_OUT_PUBLIC_KEY_JWK` in `entitlement-config.js`.
-- In the repo, the public key is `null` and the checkout/redemption URLs are empty.
-- The Free plan allows unlimited basic projects but limits history/snapshots/trash. Rules, templates and advanced filters are gated.
-- Private signing keys never go into the extension. See `tools/license-*.mjs` and `docs/COMMERCIAL_RELEASE.md`.
-
-`config.js` ships with the extension and holds optional grouping overrides (`LOCAL_LANDING_PAGE_PATTERNS`, `LOCAL_CUSTOM_GROUPS`). `config.local.js` is no longer loaded.
-
-## Testing Gotchas
-
-- `app.js` and `i18n.js` are not modules. Several tests read them as text, slice out functions with `sourceBetween(startMarker, endMarker)` and run those functions in a `vm` context with stubbed `chrome`/`document`. These include `dashboard-refresh`, `command-focus`, `free-command-palette`, `project-*-ui` and `i18n`. Renaming or reordering functions in `app.js` can break those tests; update the markers to match.
-- `tests/integration/ui-contract.test.js` statically checks `index.html`, `app.js`, `background.js` and the manifest. It verifies that element ids are unique, that every literal `getElementById` id exists in the markup, that every page script file exists, and that each manifest command is handled in `background.js`.
-
-## Releases and Docs
-
-- The version appears in three places: `package.json` `version`, the zip filename in its `package` script, and `extension/manifest.json`.
-- Unreleased work goes in `CHANGELOG.md` under `## Unreleased — YYYY-MM-DD`.
-- The manifest `key` pins the extension ID; the e2e runner derives the ID from it. Don't change or remove it.
-- Adding a required permission triggers a re-approval prompt for existing users. Browsing Memory uses optional permissions requested at runtime.
-- Network access is limited to:
-  - the user-configured model endpoint, only on an explicit AI search;
-  - checkout, only on an explicit click;
-  - `license.tabout.app`.
-
-  If data flows change, update `docs/PRIVACY.md`.
-- `docs/ai-tasks/<date>-<topic>/` records past work: `task.md` (frozen scope and acceptance criteria), `implementation.md`, `acceptance*.md` and `evidence/`. Look here for the reasoning behind existing behavior.
-- Current product status is in `docs/PRODUCT_BACKLOG.md` and `docs/RELEASE_READINESS.md`. `PRODUCT_PLAN.md` and `DEVELOPMENT_PLAN.md` are drafts from August 2026.
-- `AGENTS.md` is the upstream walkthrough for end users who ask an agent to "install this". Its "no Node.js, no npm" refers to the runtime only.
+`_locales/` only holds the manifest name and description. `AGENTS.md` is the upstream walkthrough for end users who ask an agent to "install this".
