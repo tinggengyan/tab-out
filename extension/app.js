@@ -15,7 +15,10 @@
 
 'use strict';
 
-const { escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl, duplicateTabIds, createUndoController } = TabOutLib;
+const {
+  escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl, duplicateTabIds, createUndoController,
+  createCollectedStore, migrateLegacy, collectableTabs, restoreTargets,
+} = TabOutLib;
 
 // Every close goes through this controller so it can be undone for 30 seconds.
 const undoController = createUndoController({ tabsApi: chrome.tabs, windowsApi: chrome.windows });
@@ -46,7 +49,8 @@ async function fetchOpenTabs() {
     const tabs = await chrome.tabs.query({});
     openTabs = tabs.map(t => ({
       id:       t.id,
-      url:      t.url,
+      // A tab reopened a moment ago may not have committed its URL yet
+      url:      t.url || t.pendingUrl,
       title:    t.title,
       windowId: t.windowId,
       index:    t.index,
@@ -1203,21 +1207,11 @@ document.addEventListener('click', async (e) => {
   if (action === 'collect-domain-tabs') {
     const domainGroup = findDomainGroup(actionEl.dataset.domainId);
     if (!domainGroup) return;
-    const tabs = domainGroup.tabs.filter(tab => !tab.pinned);
-    if (tabs.length === 0) return;
+    const done = await collectTabs(domainGroup.tabs);
+    if (!done) return;
 
-    const tabGroup = {
-      id: Date.now().toString(),
-      savedAt: new Date().toISOString(),
-      tabs: tabs.map(tab => ({ url: tab.url, title: tab.title })),
-    };
-    const groups = await getTabGroups();
-    groups.unshift(tabGroup);
-    await saveTabGroups(groups);
-
-    const result = await undoController.close(tabs, { kind: 'collect', collectedId: tabGroup.id });
-    await afterSiteClosed(card, domainGroup, result);
-    showToast(t('toast.collected', { n: tabGroup.tabs.length }), { undo: result.closed > 0 });
+    await afterSiteClosed(card, domainGroup, done.result);
+    showToast(t('toast.collected', { n: done.record.tabs.length }), { undo: done.result.closed > 0 });
     await renderTabGroups();
     return;
   }
@@ -1331,37 +1325,29 @@ document.addEventListener('input', async (e) => {
 
 
 /* ----------------------------------------------------------------
-   TAB GROUPS (OneTab) — collect all tabs into a group, restore later
-   Stored in chrome.storage.local under "tabGroups".
+   STASH ("已收纳") — save a group of pages and close them, restore later.
+   Records live under collectedGroupsV3 (see lib/collected-store.js).
+   Restoring a whole record reopens its pages and removes the record.
    ---------------------------------------------------------------- */
 
-async function getTabGroups() {
-  const { tabGroups = [] } = await chrome.storage.local.get('tabGroups');
-  return tabGroups;
-}
+const collectedStore = createCollectedStore(chrome.storage.local);
 
-async function saveTabGroups(groups) {
-  await chrome.storage.local.set({ tabGroups: groups });
+// Saves the non-pinned tabs as one record, then closes them (undoable).
+async function collectTabs(tabs) {
+  const targets = collectableTabs(tabs);
+  if (targets.length === 0) return null;
+  const record = await collectedStore.add({ tabs: targets.map(tab => ({ url: tab.url, title: tab.title })) });
+  const result = await undoController.close(targets, { kind: 'collect', collectedId: record.id });
+  return { record, result };
 }
 
 async function collectAllTabs() {
-  const tabs = getRealTabs().filter(tab => !tab.pinned);
-  if (tabs.length === 0) return;
+  const done = await collectTabs(getRealTabs());
+  if (!done) return;
 
-  const group = {
-    id: Date.now().toString(),
-    savedAt: new Date().toISOString(),
-    tabs: tabs.map(tab => ({ url: tab.url, title: tab.title })),
-  };
-
-  const groups = await getTabGroups();
-  groups.unshift(group);
-  await saveTabGroups(groups);
-
-  const result = await undoController.close(tabs, { kind: 'collect', collectedId: group.id });
   await fetchOpenTabs();
   playCloseSound();
-  if (result.skippedPinned > 0) {
+  if (done.result.skippedPinned > 0) {
     await renderDashboard();
   } else {
     document.querySelectorAll('#openTabsMissions .mission-card').forEach(c => {
@@ -1373,59 +1359,40 @@ async function collectAllTabs() {
     });
   }
 
-  showToast(t('toast.collected', { n: group.tabs.length }), { undo: result.closed > 0 });
+  showToast(t('toast.collected', { n: done.record.tabs.length }), { undo: done.result.closed > 0 });
   await renderTabGroups();
 }
 
 // Drops a stash record without a toast (used when its stash is undone).
 async function removeTabGroupRecord(groupId) {
-  const groups = await getTabGroups();
-  await saveTabGroups(groups.filter(g => g.id !== groupId));
+  await collectedStore.remove(groupId);
   await renderTabGroups();
+}
+
+async function openUrlSet() {
+  return new Set((await chrome.tabs.query({})).map(tab => tab.url));
 }
 
 async function restoreTabGroup(groupId) {
-  const groups = await getTabGroups();
-  const idx = groups.findIndex(g => g.id === groupId);
-  if (idx === -1) return;
-
-  const group = groups[idx];
-  for (const tab of group.tabs) {
-    await chrome.tabs.create({ url: tab.url, active: false });
-  }
-
-  groups.splice(idx, 1);
-  await saveTabGroups(groups);
-  showToast(t('toast.restored', { n: group.tabs.length }));
-  await renderTabGroups();
+  const record = await collectedStore.takeAll(groupId);
+  if (!record) return;
+  const targets = restoreTargets(record, await openUrlSet());
+  for (const page of targets) await chrome.tabs.create({ url: page.url, active: false });
+  showToast(t('toast.restored', { n: targets.length }));
+  await renderDashboard();
 }
 
 async function deleteTabGroup(groupId) {
-  const groups = await getTabGroups();
-  const idx = groups.findIndex(g => g.id === groupId);
-  if (idx === -1) return;
-
-  groups.splice(idx, 1);
-  await saveTabGroups(groups);
+  if (!(await collectedStore.remove(groupId))) return;
   showToast(t('toast.groupDeleted'));
   await renderTabGroups();
 }
 
 async function restoreSingleGroupTab(groupId, tabIdx) {
-  const groups = await getTabGroups();
-  const group = groups.find(g => g.id === groupId);
-  if (!group || !group.tabs[tabIdx]) return;
-
-  await chrome.tabs.create({ url: group.tabs[tabIdx].url, active: false });
-  group.tabs.splice(tabIdx, 1);
-
-  if (group.tabs.length === 0) {
-    const gIdx = groups.indexOf(group);
-    if (gIdx !== -1) groups.splice(gIdx, 1);
-  }
-
-  await saveTabGroups(groups);
-  await renderTabGroups();
+  const page = await collectedStore.takeTab(groupId, tabIdx);
+  if (!page) return;
+  if (!(await openUrlSet()).has(page.url)) await chrome.tabs.create({ url: page.url, active: false });
+  await renderDashboard();
 }
 
 async function renderTabGroups() {
@@ -1438,10 +1405,10 @@ async function renderTabGroups() {
 
   if (!column) return;
 
-  if (titleEl)  titleEl.textContent  = t('tabGroups.title');
+  if (titleEl)  titleEl.textContent  = t('collected.title');
   if (emptyTxt) emptyTxt.textContent = t('tabGroups.empty');
 
-  const groups = await getTabGroups();
+  const groups = await collectedStore.list();
 
   if (groups.length === 0) {
     column.style.display = 'none';
@@ -1455,13 +1422,15 @@ async function renderTabGroups() {
   const locale = _currentLocale === 'zh-CN' ? 'zh-CN' : 'en-US';
 
   listEl.innerHTML = groups.map(group => {
+    const groupId = escapeHtml(group.id);
     const date = new Date(group.savedAt).toLocaleDateString(locale, {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
     });
+    const heading = escapeHtml(group.name || date);
+    const meta = t('tabGroups.tabCount', { n: group.tabs.length }) + (group.name ? ` · ${escapeHtml(date)}` : '');
     const tabsHtml = group.tabs.map((tab, idx) => {
       const icon = escapeHtml(faviconUrl(tab.url, chrome.runtime.id));
       const safeTitle = escapeHtml(tab.title || tab.url || '');
-      const groupId = escapeHtml(group.id);
       return `<div class="tab-group-tab" data-action="restore-group-tab" data-group-id="${groupId}" data-tab-idx="${idx}" title="${safeTitle}">
         <img class="tab-group-tab-favicon" src="${icon}" alt="">
         <span class="tab-group-tab-title">${safeTitle}</span>
@@ -1471,16 +1440,16 @@ async function renderTabGroups() {
       </div>`;
     }).join('');
 
-    return `<div class="tab-group-card" data-group-id="${escapeHtml(group.id)}">
-      <div class="tab-group-header" data-action="toggle-group" data-group-id="${escapeHtml(group.id)}">
+    return `<div class="tab-group-card" data-group-id="${groupId}">
+      <div class="tab-group-header" data-action="toggle-group" data-group-id="${groupId}">
         <svg class="tab-group-chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
         <div class="tab-group-info">
-          <div class="tab-group-date">${date}</div>
-          <div class="tab-group-count">${t('tabGroups.tabCount', { n: group.tabs.length })}</div>
+          <div class="tab-group-date">${heading}</div>
+          <div class="tab-group-count">${meta}</div>
         </div>
         <div class="tab-group-actions">
-          <button class="tab-group-action restore" data-action="restore-group" data-group-id="${escapeHtml(group.id)}">${t('tabGroups.restoreAll')}</button>
-          <button class="tab-group-action delete" data-action="delete-group" data-group-id="${escapeHtml(group.id)}">${t('tabGroups.delete')}</button>
+          <button class="tab-group-action restore" data-action="restore-group" data-group-id="${groupId}">${t('tabGroups.restoreAll')}</button>
+          <button class="tab-group-action delete" data-action="delete-group" data-group-id="${groupId}">${t('tabGroups.delete')}</button>
         </div>
       </div>
       <div class="tab-group-tabs">${tabsHtml}</div>
@@ -1492,7 +1461,7 @@ async function renderTabGroups() {
   });
 }
 
-// ---- Tab Groups event handlers ----
+// ---- Stash event handlers ----
 document.addEventListener('click', async (e) => {
   const actionEl = e.target.closest('[data-action]');
   if (!actionEl) return;
@@ -1522,23 +1491,13 @@ document.addEventListener('click', async (e) => {
   }
 
   if (action === 'restore-group-tab') {
-    const idx = parseInt(actionEl.dataset.tabIdx, 10);
-    await restoreSingleGroupTab(actionEl.dataset.groupId, idx);
+    await restoreSingleGroupTab(actionEl.dataset.groupId, parseInt(actionEl.dataset.tabIdx, 10));
     return;
   }
 
   if (action === 'remove-group-tab') {
     e.stopPropagation();
-    const groups = await getTabGroups();
-    const group = groups.find(g => g.id === actionEl.dataset.groupId);
-    if (!group) return;
-    const idx = parseInt(actionEl.dataset.tabIdx, 10);
-    group.tabs.splice(idx, 1);
-    if (group.tabs.length === 0) {
-      const gIdx = groups.indexOf(group);
-      if (gIdx !== -1) groups.splice(gIdx, 1);
-    }
-    await saveTabGroups(groups);
+    await collectedStore.takeTab(actionEl.dataset.groupId, parseInt(actionEl.dataset.tabIdx, 10));
     await renderTabGroups();
     return;
   }
@@ -1825,4 +1784,7 @@ document.addEventListener('keydown', (e) => {
    INITIALIZE
    ---------------------------------------------------------------- */
 initShortcuts();
-renderDashboard();
+// Copy the owner's v2.3 projects into stash records once, then render.
+migrateLegacy(chrome.storage.local)
+  .catch(err => console.warn('[tab-out] Migration skipped:', err))
+  .finally(() => renderDashboard());

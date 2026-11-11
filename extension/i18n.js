@@ -103,7 +103,7 @@ const I18N_LOCALES = {
     'confirm.import':         'Replace current shortcuts and saved tabs with imported data?',
 
     // Tab Groups (OneTab)
-    'tabGroups.title':        'Tab Groups',
+    'collected.title':        'Stashed',
     'tabGroups.collectAll':   'Collect all',
     'tabGroups.restoreAll':   'Restore all',
     'tabGroups.delete':       'Delete',
@@ -213,7 +213,7 @@ const I18N_LOCALES = {
     'confirm.import':         '是否用导入的数据替换当前书签与保存项？',
 
     // Tab Groups (OneTab)
-    'tabGroups.title':        '标签页组',
+    'collected.title':        '已收纳',
     'tabGroups.collectAll':   '一键收纳',
     'tabGroups.restoreAll':   '全部恢复',
     'tabGroups.delete':       '删除',

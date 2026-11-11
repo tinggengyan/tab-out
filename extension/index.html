@@ -91,6 +91,19 @@
       <div class="missions" id="openTabsMissions"></div>
     </div>
 
+    <!-- RIGHT COLUMN: Stash ("已收纳") — above save-for-later -->
+    <div class="tab-groups-column" id="tabGroupsColumn" style="display:none">
+      <div class="section-header">
+        <h2 id="tabGroupsTitle"></h2>
+        <div class="section-line"></div>
+        <div class="section-count" id="tabGroupsCount"></div>
+      </div>
+      <div class="tab-groups-list" id="tabGroupsList"></div>
+      <div class="tab-groups-empty" id="tabGroupsEmpty" style="display:none">
+        <span id="tabGroupsEmptyText"></span>
+      </div>
+    </div>
+
     <!-- RIGHT COLUMN: Saved for Later checklist -->
     <div class="deferred-column" id="deferredColumn" style="display:none">
       <div class="section-header">
@@ -118,19 +131,6 @@
           <input type="text" class="archive-search" id="archiveSearch" placeholder="">
           <div class="archive-list" id="archiveList"></div>
         </div>
-      </div>
-    </div>
-
-    <!-- RIGHT COLUMN: Tab Groups (OneTab) -->
-    <div class="tab-groups-column" id="tabGroupsColumn" style="display:none">
-      <div class="section-header">
-        <h2 id="tabGroupsTitle"></h2>
-        <div class="section-line"></div>
-        <div class="section-count" id="tabGroupsCount"></div>
-      </div>
-      <div class="tab-groups-list" id="tabGroupsList"></div>
-      <div class="tab-groups-empty" id="tabGroupsEmpty" style="display:none">
-        <span id="tabGroupsEmptyText"></span>
       </div>
     </div>
 
@@ -171,6 +171,7 @@
 <script src="lib/sanitize.js"></script>
 <script src="lib/grouping.js"></script>
 <script src="lib/close-undo.js"></script>
+<script src="lib/collected-store.js"></script>
 
 <!-- Main dashboard logic — loads last so the DOM is ready -->
 <script src="app.js"></script>

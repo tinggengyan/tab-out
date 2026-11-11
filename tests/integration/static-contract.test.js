@@ -68,3 +68,15 @@ test('app.js closes user tabs only through the undo controller', () => {
   assert.match(app, /createUndoController\(/);
   assert.match(html, /id="toastAction"/);
 });
+
+test('stash records use the collected store and migrate before the first render', () => {
+  const app = read('app.js');
+  assert.doesNotMatch(app, /storage\.local\.(get|set)\(\s*\{?\s*['"]?tabGroups/, 'app.js must not read or write the legacy tabGroups key');
+  assert.match(app, /createCollectedStore\(chrome\.storage\.local\)/);
+  const init = app.slice(app.lastIndexOf('INITIALIZE'));
+  assert.ok(init.indexOf('migrateLegacy(') !== -1 && init.indexOf('migrateLegacy(') < init.indexOf('renderDashboard('),
+    'migrateLegacy must run before the first renderDashboard');
+  const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
+  assert.ok(scripts.indexOf('lib/collected-store.js') !== -1 && scripts.indexOf('lib/collected-store.js') < scripts.indexOf('app.js'));
+  assert.ok(html.indexOf('id="tabGroupsColumn"') < html.indexOf('id="deferredColumn"'), 'stash column sits above save-for-later');
+});
