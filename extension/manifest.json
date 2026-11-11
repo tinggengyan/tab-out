@@ -2,33 +2,19 @@
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6xQrQfiVeE5u4U4hrm5S6HRw6UldPTYWbN2CywC6xghlQvTX5Yp7y1d7P88Wgo6ueexVbK7T5LIrYht7W8VJLDcMcF2CpbU/fzVIvQcXVkPk1xmRCkuu/XdZmHu1XAMisCjADK5K8BkBk5SLZDyiaUP43lzhfNHqNSst2ivLABmWOynTaI2OTdFQKIEV8suS/dOUxhVod9AQkfj6Ce82Bm2NUa/jHM0cW9P+Ptb/+CUFXbDIW7pselyVS4GNcED9pWShWTKZ9EDSh3BIBrPer4afQjQEGbTVtBzTyRbAMLsEtpmu+mXNDeeESoo1k+GrkrE9hJ1NgSfuTHcjn3yqbQIDAQAB",
   "name": "__MSG_appName__",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "__MSG_appDescription__",
   "default_locale": "en",
-  "permissions": ["tabs", "tabGroups", "storage", "favicon", "alarms"],
-  "host_permissions": ["https://license.tabout.app/*"],
-  "optional_permissions": ["history", "scripting"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
-  "chrome_url_overrides": { "newtab": "index.html" },
-  "background": { "service_worker": "background.js" },
-  "omnibox": { "keyword": "to" },
-  "commands": {
-    "open-tab-out": {
-      "suggested_key": { "default": "Ctrl+Shift+O", "mac": "Command+Shift+O" },
-      "description": "Open Tab Out"
-    },
-    "search-tab-out": {
-      "suggested_key": { "default": "Ctrl+Shift+K", "mac": "Command+Shift+K" },
-      "description": "Search Tab Out"
-    },
-    "save-session": {
-      "suggested_key": { "default": "Alt+Shift+S", "mac": "Alt+Shift+S" },
-      "description": "Save the current browser session"
-    },
-    "collect-current-window": {
-      "suggested_key": { "default": "Alt+Shift+C", "mac": "Alt+Shift+C" },
-      "description": "Collect the current window"
-    }
+  "permissions": [
+    "tabs",
+    "storage",
+    "favicon"
+  ],
+  "chrome_url_overrides": {
+    "newtab": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "action": {
     "default_title": "Tab Out",

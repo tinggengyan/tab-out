@@ -6,10 +6,6 @@
   <title>Tab Out</title>
 
   <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="src/ui/search-platform-settings.css">
-  <link rel="stylesheet" href="src/ui/project-workbench.css">
-  <link rel="stylesheet" href="src/ui/browsing-memory.css">
-  <link rel="stylesheet" href="src/ui/dashboard-navigation.css">
 </head>
 <body>
 <div class="page-wrapper">
@@ -59,17 +55,8 @@
 
 <div class="container">
 
-  <nav class="dashboard-navigation" id="dashboardNavigation" aria-label="Dashboard views">
-    <span class="dashboard-brand">Tab Out</span>
-    <div class="dashboard-navigation-actions">
-      <button type="button" id="dashboardNavTabs" aria-controls="dashboardTabsView" aria-current="page">Tabs</button>
-      <button type="button" id="dashboardNavProjects" aria-controls="dashboardProjectsView">Projects</button>
-      <button type="button" id="dashboardNavMemory" aria-controls="dashboardMemoryView">Browsing memory</button>
-    </div>
-  </nav>
 
-  <main class="dashboard-content" id="dashboardContent" tabindex="0" aria-labelledby="dashboardNavTabs">
-  <section class="dashboard-view" id="dashboardTabsView" aria-labelledby="dashboardNavTabs">
+
   <!-- ================================================================
        TAB OUT DUPES BANNER — appears when you have extra Tab Out tabs open
        Hidden by default; app.js shows it when dupeTabOutCount > 1
@@ -101,8 +88,7 @@
         <div class="section-line"></div>
         <div class="section-count" id="openTabsSectionCount"></div>
       </div>
-      <div class="tabs-selection-toolbar" id="tabsSelectionToolbar" hidden><span id="tabsSelectionSummary" role="status" aria-live="polite"></span><div><button class="project-button project-button-primary" id="tabsSelectionSaveBtn" data-action="save-selected-tabs"></button><button class="project-button" id="tabsSelectionClearBtn" data-action="clear-selected-tabs"></button></div></div>
-      <p class="tabs-selection-hint" id="tabsSelectionHint"></p><div class="missions" id="openTabsMissions"></div>
+      <div class="missions" id="openTabsMissions"></div>
     </div>
 
     <!-- RIGHT COLUMN: Saved for Later checklist -->
@@ -135,346 +121,50 @@
       </div>
     </div>
 
-
+    <!-- RIGHT COLUMN: Tab Groups (OneTab) -->
+    <div class="tab-groups-column" id="tabGroupsColumn" style="display:none">
+      <div class="section-header">
+        <h2 id="tabGroupsTitle"></h2>
+        <div class="section-line"></div>
+        <div class="section-count" id="tabGroupsCount"></div>
+      </div>
+      <div class="tab-groups-list" id="tabGroupsList"></div>
+      <div class="tab-groups-empty" id="tabGroupsEmpty" style="display:none">
+        <span id="tabGroupsEmptyText"></span>
+      </div>
+    </div>
 
   </div><!-- end .dashboard-columns -->
-  </section>
-
-  <section class="dashboard-view" id="dashboardProjectsView" aria-labelledby="dashboardNavProjects" hidden>
-  <section class="project-workbench" id="projectWorkbench" aria-labelledby="projectHeading">
-    <div class="project-workbench-header">
-      <div class="project-workbench-copy"><p class="project-eyebrow" id="projectEyebrow"></p><h1 id="projectHeading"></h1><p class="project-intro" id="projectIntro"></p></div>
-      <div class="project-main-actions"><button class="project-button project-button-quiet" id="projectSaveBtn" type="button"></button></div>
-    </div>
-    <div class="project-section-heading"><h2 id="projectListTitle"></h2><span id="projectListCount"></span><span class="project-window-summary" id="projectWindowSummary"></span></div>
-    <section class="project-detail" id="projectDetail" hidden aria-labelledby="projectDetailTitle"><button class="project-button project-button-quiet" id="projectDetailBackBtn"></button><div class="project-detail-heading"><div><h2 id="projectDetailTitle"></h2><p id="projectDetailSummary"></p></div><button class="project-button project-button-primary" id="projectDetailResumeBtn"></button></div><div class="project-detail-actions"><button class="project-button" id="projectDetailAddBtn"></button><details><summary id="projectDetailMore"></summary><button class="project-button" id="projectDetailReplaceBtn"></button></details></div><p id="projectDetailStatus" role="status" aria-live="polite"></p><div id="projectDetailEntries"></div></section>
-    <div class="project-list" id="projectList"></div>
-    <div class="project-empty" id="projectEmpty"><h3 id="projectEmptyTitle"></h3><p id="projectEmptyText"></p></div>
-    <details class="saved-secondary" id="savedLater"><summary id="savedLaterTitle"></summary><div class="project-list" id="savedLaterList"></div><details class="saved-archive" id="savedArchive"><summary id="savedArchiveTitle"></summary><div class="project-list" id="savedArchiveList"></div></details></details>
-    <button class="project-button project-button-quiet" id="projectAdvancedBtn" data-action="open-workspaces"></button>
-    <div class="project-backup"><div><h3 id="projectBackupTitle"></h3><p id="projectBackupText"></p><span id="projectBackupStatus"></span></div><button class="project-button project-button-quiet" id="projectBackupBtn" type="button"></button></div>
-    <p class="project-main-status" id="projectMainStatus" role="status" aria-live="polite"></p>
-  </section>
-  </section>
-
-  <section class="dashboard-view" id="dashboardMemoryView" aria-labelledby="dashboardNavMemory" hidden>
-  <section class="memory-workbench" id="memoryWorkbench" aria-labelledby="memoryHeading">
-    <div class="memory-heading-row">
-      <div><p class="memory-eyebrow" id="memoryEyebrow"></p><h2 id="memoryHeading"></h2><p class="memory-intro" id="memoryIntro"></p></div>
-      <span class="memory-recording-state" id="memoryRecordingState"></span>
-    </div>
-    <form id="memorySearchForm" class="memory-search-form">
-      <label class="memory-query-field"><span class="memory-sr-only" id="memoryQueryLabel"></span><input id="memoryQuery" type="search" maxlength="2000" autocomplete="off"></label>
-      <label class="memory-filter-field"><span class="memory-sr-only" id="memoryTimeLabel"></span><select id="memoryDays"><option value="7" id="memoryDays7"></option><option value="30" id="memoryDays30" selected></option><option value="90" id="memoryDays90"></option></select></label>
-      <label class="memory-filter-field"><span class="memory-sr-only" id="memoryModeLabel"></span><select id="memoryUseAI"><option value="local" id="memoryLocalOption"></option><option value="ai" id="memoryAIOption"></option></select></label>
-      <button class="memory-button memory-button-primary" id="memorySearchBtn" type="submit"></button>
-    </form>
-    <label class="memory-content-consent" id="memoryContentConsent" hidden><input type="checkbox" id="memoryIncludeContent"><span id="memoryIncludeContentLabel"></span></label>
-    <p class="memory-hint" id="memoryPrivacyHint" hidden></p>
-    <div class="memory-overview"><span id="memoryStats"></span><button type="button" class="memory-text-button" id="memoryRefreshBtn"></button></div>
-    <p class="memory-status" id="memoryStatus" role="status" aria-live="polite"></p>
-    <ul class="memory-warnings" id="memoryWarnings" hidden></ul>
-    <div class="memory-results-toolbar" id="memoryResultsToolbar" hidden>
-      <div><span id="memoryResultCount"></span><span id="memorySelection"></span></div>
-      <div class="memory-result-actions"><button type="button" class="memory-button" id="memorySelectAllBtn"></button><button type="button" class="memory-button" id="memoryOpenBtn"></button><button type="button" class="memory-button" id="memorySaveBtn"></button><button type="button" class="memory-button" id="memorySummaryBtn"></button><button type="button" class="memory-button memory-danger" id="memoryDeleteBtn"></button></div>
-    </div>
-    <p class="memory-hint" id="memoryCoverageHint" hidden></p>
-    <section class="memory-summary" id="memorySummary" hidden aria-labelledby="memorySummaryTitle"><h3 id="memorySummaryTitle"></h3><p class="memory-hint" id="memorySummaryHint"></p><ul id="memorySummaryList"></ul></section>
-    <div class="memory-results" id="memoryResults"></div>
-    <div class="memory-empty" id="memoryEmpty"><h3 id="memoryEmptyTitle"></h3><p id="memoryEmptyText"></p></div>
-    <details class="memory-settings" id="memorySettings">
-      <summary id="memorySettingsToggle"></summary>
-      <div class="memory-settings-grid">
-        <section class="memory-setting-section">
-          <h3 id="memoryRecordingTitle"></h3><p class="memory-hint" id="memoryCaptureHint"></p>
-          <button type="button" class="memory-button" id="memoryRecordingBtn"></button>
-          <button type="button" class="memory-button" id="memoryHistoryBtn"></button><p class="memory-hint" id="memoryHistoryHint"></p>
-          <label class="memory-field"><span id="memoryRetentionLabel"></span><select id="memoryRetention"><option value="30" id="memoryRetention30"></option><option value="90" id="memoryRetention90" selected></option><option value="180" id="memoryRetention180"></option></select></label>
-          <label class="memory-field"><span id="memoryExclusionsLabel"></span><textarea id="memoryExclusions" rows="3" maxlength="8000" autocomplete="off" spellcheck="false"></textarea></label><p class="memory-hint" id="memoryExclusionsHint"></p><p class="memory-hint" id="memoryCapacity"></p>
-        </section>
-        <section class="memory-setting-section">
-          <h3 id="memoryModelTitle"></h3>
-          <label class="memory-field"><span id="memoryBaseUrlLabel"></span><input id="memoryBaseUrl" type="url" maxlength="2048" autocomplete="off" spellcheck="false"></label>
-          <label class="memory-field"><span id="memoryModelLabel"></span><input id="memoryModel" type="text" maxlength="256" autocomplete="off" spellcheck="false"></label>
-          <label class="memory-field"><span id="memoryApiKeyLabel"></span><input id="memoryApiKey" type="password" maxlength="4096" autocomplete="new-password" spellcheck="false"></label><p class="memory-hint" id="memoryKeyState"></p>
-          <div class="memory-inline-actions"><button type="button" class="memory-button memory-button-primary" id="memorySaveSettingsBtn"></button><button type="button" class="memory-button" id="memoryTestBtn"></button></div>
-        </section>
-        <section class="memory-setting-section memory-data-section">
-          <h3 id="memoryDataTitle"></h3><p class="memory-hint" id="memoryBackupHint"></p>
-          <div class="memory-inline-actions"><button type="button" class="memory-button" id="memoryExportBtn"></button><label class="memory-button memory-import-label"><span id="memoryImportLabel"></span><input type="file" id="memoryImportFile" accept=".json,application/json"></label><button type="button" class="memory-button memory-danger" id="memoryClearBtn"></button></div>
-          <div class="memory-import-preview" id="memoryImportPreview" hidden><p id="memoryImportSummary"></p><div class="memory-inline-actions"><button type="button" class="memory-button memory-button-primary" id="memoryImportConfirmBtn"></button><button type="button" class="memory-button" id="memoryImportCancelBtn"></button></div></div>
-        </section>
-      </div>
-    </details>
-  </section>
-  </section>
-
-  </main>
 
   <!-- ================================================================
-       FOOTER — shared tools outside the scrolling content
+       FOOTER — global stats + refresh control
        ================================================================ -->
-  <footer id="dashboardFooter">
+  <footer>
     <div class="last-refresh">
-      <span style="color: var(--muted); font-size: 11px;"><span id="dashboardCredit">Tab Out by TinggengYan · Based on</span> <a href="https://x.com/zarazhangrui" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">Zara</a></span>
-    </div>
-    <div class="footer-tools">
-      <button class="footer-tool-btn" id="searchOpenBtn" data-action="open-command"></button>
-      <button class="footer-tool-btn" id="cleanupOpenBtn" data-action="open-cleanup"></button>
-      <button class="footer-tool-btn" id="workspacesOpenBtn" data-action="open-workspaces"></button>
-      <button class="footer-tool-btn" id="historyOpenBtn" data-action="open-history"></button>
-      <button class="footer-tool-btn" id="trashOpenBtn" data-action="open-trash"></button>
-      <button class="footer-tool-btn" id="settingsOpenBtn" data-action="open-settings"></button>
-
+      <span style="color: var(--muted); font-size: 11px;">Tab Out by TinggengYan based on <a href="https://x.com/zarazhangrui" target="_top" style="color: var(--muted); text-decoration: underline; text-underline-offset: 2px;">Zara</a></span>
     </div>
   </footer>
 
 </div><!-- end .container -->
 </div><!-- end .page-wrapper -->
 
-<div class="modal-overlay" id="trashOverlay" style="display:none">
-  <section class="trash-dialog" role="dialog" aria-modal="true" aria-labelledby="trashTitle">
-    <div class="trash-dialog-header">
-      <div>
-        <h2 id="trashTitle"></h2>
-        <p id="trashSubtitle"></p>
-      </div>
-      <button class="trash-close" data-action="close-trash" aria-label="Close" data-i18n-aria="common.close">&times;</button>
-    </div>
-    <div class="trash-list" id="trashList"></div>
-    <div class="trash-empty" id="trashEmpty"></div>
-    <div class="trash-dialog-footer">
-      <button class="action-btn danger" data-action="clear-trash" id="trashClearBtn"></button>
-    </div>
-  </section>
-</div>
-
-<div class="modal-overlay" id="historyOverlay" style="display:none">
-  <section class="trash-dialog history-dialog" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
-    <div class="trash-dialog-header">
-      <div>
-        <h2 id="historyTitle"></h2>
-        <p id="historySubtitle"></p>
-      </div>
-      <button class="trash-close" data-action="close-history" aria-label="Close" data-i18n-aria="common.close">&times;</button>
-    </div>
-    <div class="history-toolbar">
-      <button class="action-btn primary" data-action="save-snapshot" id="saveSnapshotBtn"></button>
-    </div>
-    <div class="trash-list" id="historyList"></div>
-    <div class="trash-empty" id="historyEmpty"></div>
-    <h3 class="history-subheading" id="operationHistoryTitle"></h3>
-    <div class="trash-list operation-history-list" id="operationHistoryList"></div>
-    <div class="trash-empty" id="operationHistoryEmpty"></div>
-  </section>
-</div>
-
-<div class="modal-overlay" id="workspacesOverlay" style="display:none">
-  <section class="trash-dialog workspace-dialog" role="dialog" aria-modal="true" aria-labelledby="workspacesTitle">
-    <div class="trash-dialog-header">
-      <div><h2 id="workspacesTitle"></h2><p id="workspacesSubtitle"></p></div>
-      <button class="trash-close" data-action="close-workspaces" aria-label="Close" data-i18n-aria="common.close">&times;</button>
-    </div>
-    <div class="history-toolbar">
-      <select class="workspace-template-select" id="workspaceTemplateSelect"></select>
-      <button class="action-btn" data-action="create-from-template" id="createTemplateBtn"></button>
-      <button class="action-btn primary" data-action="save-current-workspace" id="saveWorkspaceBtn"></button>
-    </div>
-    <div class="workspace-list" id="workspaceList"></div>
-    <div class="trash-empty" id="workspaceEmpty"></div>
-    <div class="workspace-automation" id="workspaceAutomation">
-      <h3 id="workspaceSuggestionsTitle"></h3><div id="workspaceSuggestions"></div>
-      <h3 id="workspaceRulesTitle"></h3><div id="workspaceRules"></div>
-      <div class="workspace-exclusion-editor"><input id="workspaceRuleExclusionInput"><button class="action-btn" data-action="add-rule-exclusion" id="workspaceRuleExclusionBtn"></button></div>
-      <div id="workspaceRuleExclusions"></div>
-    </div>
-  </section>
-</div>
-
-<div class="modal-overlay" id="onboardingOverlay" style="display:none">
-  <section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
-    <div class="onboarding-kicker">TAB OUT</div>
-    <h1 id="onboardingTitle"></h1>
-    <p class="onboarding-lead" id="onboardingLead"></p>
-    <div class="onboarding-steps">
-      <article class="onboarding-step"><span>1</span><h3 id="onboardingStep1Title"></h3><p id="onboardingStep1Text"></p></article>
-      <article class="onboarding-step"><span>2</span><h3 id="onboardingStep2Title"></h3><p id="onboardingStep2Text"></p></article>
-      <article class="onboarding-step"><span>3</span><h3 id="onboardingStep3Title"></h3><p id="onboardingStep3Text"></p></article>
-    </div>
-    <div class="onboarding-privacy">
-      <strong id="onboardingPrivacyTitle"></strong>
-      <p id="onboardingPrivacyText"></p>
-    </div>
-    <button class="action-btn primary onboarding-start" data-action="finish-onboarding" id="onboardingStartBtn"></button>
-  </section>
-</div>
-
-<div class="modal-overlay" id="restoreOverlay" style="display:none">
-  <section class="restore-dialog" role="dialog" aria-modal="true" aria-labelledby="restoreTitle">
-    <div class="trash-dialog-header">
-      <div><h2 id="restoreTitle"></h2><p id="restoreSummary"></p></div>
-      <button class="trash-close" data-action="cancel-restore" aria-label="Close" data-i18n-aria="common.close">&times;</button>
-    </div>
-    <div class="restore-options">
-      <label><input type="radio" name="restoreMode" value="new-window" checked><span id="restoreModeNew"></span></label>
-      <label><input type="radio" name="restoreMode" value="merge"><span id="restoreModeMerge"></span></label>
-      <label><input type="radio" name="restoreMode" value="replace-current"><span id="restoreModeReplace"></span></label>
-      <label class="restore-checkbox"><input type="checkbox" id="restoreSkipDuplicates" checked><span id="restoreSkipText"></span></label>
-    </div>
-    <div class="restore-warning" id="restoreWarning"></div>
-    <div class="restore-footer">
-      <button class="action-btn" data-action="cancel-restore" id="restoreCancelBtn"></button>
-      <button class="action-btn primary" data-action="confirm-restore" id="restoreConfirmBtn"></button>
-    </div>
-  </section>
-</div>
-
-<div class="command-overlay" id="commandOverlay" style="display:none">
-  <section class="command-dialog" role="dialog" aria-modal="true" aria-label="Search" data-i18n-aria="search.open">
-    <div class="command-input-row">
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35m2.1-5.4a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" /></svg>
-      <input id="commandInput" autocomplete="off">
-      <kbd>ESC</kbd>
-    </div>
-    <div class="command-toolbar"><span id="commandHint"></span><button class="action-btn" id="platformSettingsBtn" data-action="open-platform-settings"></button></div>
-    <div class="command-results" id="commandResults"></div>
-    <div class="command-empty" id="commandEmpty"></div>
-  </section>
-</div>
-
-<div class="modal-overlay" id="cleanupOverlay" style="display:none">
-  <section class="trash-dialog cleanup-dialog" role="dialog" aria-modal="true" aria-labelledby="cleanupTitle">
-    <div class="trash-dialog-header">
-      <div><h2 id="cleanupTitle"></h2><p id="cleanupSubtitle"></p></div>
-      <button class="trash-close" data-action="close-cleanup" aria-label="Close" data-i18n-aria="common.close">&times;</button>
-    </div>
-    <div class="cleanup-summary" id="cleanupSummary"></div>
-    <div class="cleanup-list" id="cleanupList"></div>
-    <div class="cleanup-whitelist">
-      <input id="cleanupWhitelistInput"><button class="action-btn" data-action="add-cleanup-whitelist" id="cleanupWhitelistBtn"></button>
-    </div>
-    <div class="restore-footer"><button class="action-btn danger" data-action="apply-cleanup" id="cleanupApplyBtn"></button></div>
-  </section>
-</div>
-
-<div class="modal-overlay" id="upgradeOverlay" style="display:none">
-  <section class="upgrade-dialog" role="dialog" aria-modal="true" aria-labelledby="upgradeTitle">
-    <button class="trash-close upgrade-close" data-action="close-upgrade" aria-label="Close" data-i18n-aria="common.close">&times;</button>
-    <div class="onboarding-kicker">TAB OUT</div><h2 id="upgradeTitle"></h2><p id="upgradeSubtitle"></p>
-    <div class="upgrade-plans">
-      <article id="proLifetimeOffer" hidden><h3 id="proLifetimeTitle"></h3><div class="upgrade-price">$29</div><p id="proLifetimeText"></p><button class="action-btn primary" data-action="start-checkout" data-plan="pro_lifetime" id="buyLifetimeBtn"></button></article>
-      <article id="syncOffer" hidden><h3 id="syncPlanTitle"></h3><div class="upgrade-price">$24<span id="upgradePerYear">/yr</span></div><p id="syncPlanText"></p><button class="action-btn primary" data-action="start-checkout" data-plan="sync" id="buySyncBtn"></button></article>
-    </div>
-    <div class="license-activate"><input id="licenseTokenInput"><button class="action-btn" data-action="activate-license" id="activateLicenseBtn"></button></div>
-    <div class="upgrade-status" id="upgradeStatus"></div>
-  </section>
-</div>
-
-<div class="modal-overlay" id="settingsOverlay" style="display:none">
-  <section class="trash-dialog settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-    <div class="trash-dialog-header"><div><h2 id="settingsTitle"></h2><p id="settingsSubtitle"></p></div><button class="trash-close" data-action="close-settings" aria-label="Close" data-i18n-aria="common.close">&times;</button></div>
-    <div class="settings-grid">
-      <section class="settings-section"><h3 id="settingsLanguageTitle"></h3><label class="settings-language"><span id="settingsLanguageLabel"></span><select id="settingsLanguageSelect" aria-describedby="settingsLanguageHint settingsLanguageStatus"><option value="auto">Follow browser</option><option value="en">English</option><option value="zh-CN">简体中文</option><option value="zh-TW">繁體中文</option><option value="ja">日本語</option></select></label><p id="settingsLanguageHint"></p><p id="settingsLanguageStatus" role="status" aria-live="polite"></p></section>
-      <section class="settings-section"><h3 id="settingsPrivacyTitle"></h3><p id="settingsPrivacyText"></p><label class="settings-toggle"><span id="settingsTelemetryLabel"></span><input type="checkbox" id="settingsTelemetryInput" data-setting="telemetryOptInV1"></label></section>
-      <section class="settings-section"><h3 id="settingsRecoveryTitle"></h3><label class="settings-toggle"><span id="settingsSnapshotsLabel"></span><input type="checkbox" id="settingsSnapshotsInput" data-setting="automaticSnapshotsEnabledV1"></label><div class="settings-meta" id="settingsStorageUsage"></div></section>
-      <section class="settings-section"><h3 id="settingsAutomationTitle"></h3><label class="settings-toggle"><span id="settingsRulesLabel"></span><input type="checkbox" id="settingsRulesInput" data-setting="workspaceAutomationEnabledV1"></label></section>
-      <section class="settings-section"><h3 id="settingsMemoryTitle"></h3><p id="settingsMemoryText"></p><div class="settings-actions"><button class="action-btn" data-action="open-memory-settings" id="settingsMemoryBtn"></button><button class="action-btn" data-action="export-memory" id="settingsMemoryExportBtn"></button></div></section>
-      <section class="settings-section"><h3 id="settingsDataTitle"></h3><p id="settingsDataText"></p><div class="settings-actions"><button class="action-btn" data-action="settings-export" id="settingsExportBtn"></button><button class="action-btn" data-action="settings-import" id="settingsImportBtn"></button></div></section>
-      <section class="settings-section"><h3 id="settingsPlanTitle"></h3><div class="settings-meta" id="settingsPlanStatus"></div><div class="settings-actions"><button class="action-btn primary" data-action="open-upgrade" id="settingsUpgradeBtn"></button><button class="action-btn" data-action="deactivate-license" id="settingsDeactivateBtn"></button></div></section>
-      <section class="settings-section"><h3 id="settingsSyncTitle"></h3><p id="settingsSyncStatus"></p></section>
-    </div>
-  </section>
-</div>
-
-<div class="modal-overlay" id="importPreviewOverlay" style="display:none">
-  <section class="restore-dialog" role="dialog" aria-modal="true" aria-labelledby="importPreviewTitle">
-    <div class="trash-dialog-header"><div><h2 id="importPreviewTitle"></h2><p id="importPreviewSummary"></p></div><button class="trash-close" data-action="cancel-import-preview" aria-label="Close" data-i18n-aria="common.close">&times;</button></div>
-    <div class="restore-options">
-      <label><input type="radio" name="importStrategy" value="merge" checked><span id="importStrategyMerge"></span></label>
-      <label><input type="radio" name="importStrategy" value="replace"><span id="importStrategyReplace"></span></label>
-    </div>
-    <div class="restore-warning visible-warning" id="importPreviewWarning"></div>
-    <div class="restore-footer"><button class="action-btn" data-action="cancel-import-preview" id="importCancelBtn"></button><button class="action-btn primary" data-action="confirm-import-preview" id="importConfirmBtn"></button></div>
-  </section>
-</div>
-
 <!-- ================================================================
      TOAST — floats above everything, used for action confirmations
      Hidden by default via CSS (opacity:0, translateY)
      ================================================================ -->
-<div class="modal-overlay project-overlay" id="projectDialogOverlay" style="display:none">
-  <section class="project-dialog" role="dialog" aria-modal="true" aria-labelledby="projectDialogTitle" aria-describedby="projectDialogDescription" tabindex="-1">
-    <div class="project-dialog-heading"><div><h2 id="projectDialogTitle"></h2><p id="projectDialogDescription"></p></div><button type="button" class="project-button project-button-quiet" id="projectDialogCloseBtn" data-action="close-project-dialog">Close</button></div>
-    <div class="project-dialog-error" id="projectDialogError" role="alert" hidden></div>
-    <button type="button" class="project-button" id="projectRefreshPreviewBtn" hidden></button>
-    <div id="projectPreview">
-      <div class="project-source-fields" id="projectSourceFields"><label><span id="projectSourceLabel"></span><select id="projectSourceSelect"></select></label><label><span id="projectNameLabel"></span><input id="projectNameInput" maxlength="256" autocomplete="off"></label></div>
-      <div class="project-target" id="projectTarget" hidden><div><span class="project-field-caption" id="projectTargetLabel"></span><h3 id="projectTargetName"></h3><p id="projectTargetSummary"></p></div><label><span id="projectRestoreLabel"></span><select id="projectRestoreMode"><option value="new-window"></option><option value="merge-current"></option></select></label></div>
-      <div id="projectSelectionSection"><p class="project-selection-hint" id="projectScope"></p><div class="project-selection-heading"><p id="projectSelectionSummary" aria-live="polite"></p><div><button type="button" class="project-button project-button-quiet" id="projectSelectAllBtn"></button><button type="button" class="project-button project-button-quiet" id="projectClearBtn"></button></div></div><input class="project-tab-filter" id="projectTabFilter" type="search" autocomplete="off"><div class="project-candidates" id="projectCandidates"></div><p class="project-selection-hint" id="projectSelectionHint"></p></div>
-      <section class="project-update-impact" id="projectUpdateImpact" hidden aria-live="polite"></section>
-      <div class="project-dialog-actions"><button class="project-button" id="projectCancelBtn" type="button"></button><div><button class="project-button" id="projectSaveOnlyBtn" type="button"></button><button class="project-button project-button-primary" id="projectExecuteBtn" type="button"></button></div></div>
-    </div>
-    <div class="project-result" id="projectResult" hidden><p class="project-result-summary" id="projectResultSummary" role="status" aria-live="polite"></p><p class="project-result-safety" id="projectResultSafety"></p><ul class="project-result-failures" id="projectResultFailures" hidden></ul><div class="project-dialog-actions"><div><button class="project-button" id="projectViewBtn" type="button"></button><button class="project-button" id="projectRetryBtn" type="button" hidden></button><button class="project-button" id="projectUndoBtn" type="button" hidden></button></div><button class="project-button project-button-primary" id="projectDoneBtn" type="button"></button></div></div>
-    <p class="project-busy" id="projectBusy" role="status" aria-live="polite" hidden></p>
-  </section>
-</div>
-
 <div class="toast" id="toast">
   <!-- Checkmark circle icon (Heroicons outline) -->
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
   <span id="toastText"></span>
-  <button class="toast-action" id="toastAction" data-action="undo-last-operation" style="display:none"></button>
 </div>
 
-<dialog class="memory-confirm-dialog" id="memoryConfirmDialog" aria-labelledby="memoryConfirmTitle" aria-describedby="memoryConfirmDescription">
-  <h2 id="memoryConfirmTitle"></h2><p id="memoryConfirmDescription"></p><div class="memory-inline-actions"><button type="button" class="memory-button" id="memoryConfirmNo"></button><button type="button" class="memory-button memory-button-danger" id="memoryConfirmYes"></button></div>
-</dialog>
-
-<!-- Optional grouping defaults. This file ships with the extension so MV3 never loads a missing script. -->
+<!-- Optional grouping overrides (LOCAL_LANDING_PAGE_PATTERNS, LOCAL_CUSTOM_GROUPS) -->
 <script src="config.js"></script>
-<script src="entitlement-config.js"></script>
 
-<!-- Packaged interface translations; no network translation requests. -->
-<script src="locales/zh-TW.js"></script>
-<script src="locales/ja.js"></script>
+<!-- i18n — auto-detects browser language (en / zh-CN) -->
 <script src="i18n.js"></script>
-<script src="src/ui/dashboard-navigation.js"></script>
-
-<!-- Tested core modules — loaded before the legacy dashboard controller -->
-<script src="src/shared/sanitize.js"></script>
-<script src="src/domain/session.js"></script>
-<script src="src/domain/rule-engine.js"></script>
-<script src="src/storage/schema.js"></script>
-<script src="src/storage/operation-repository.js"></script>
-<script src="src/storage/trash-repository.js"></script>
-<script src="src/storage/snapshot-repository.js"></script>
-<script src="src/storage/project-normalization.js"></script>
-<script src="src/storage/workspace-repository.js"></script>
-<script src="src/storage/rule-repository.js"></script>
-<script src="src/storage/restore-job-repository.js"></script>
-<script src="src/api/chrome-session-adapter.js"></script>
-<script src="src/services/operation-service.js"></script>
-<script src="src/services/migration-service.js"></script>
-<script src="src/services/snapshot-service.js"></script>
-<script src="src/services/restore-planner.js"></script>
-<script src="src/services/template-service.js"></script>
-<script src="src/services/search-service.js"></script>
-<script src="src/services/platform-search-service.js"></script>
-<script src="src/storage/search-platform-repository.js"></script>
-<script src="src/services/unified-search-service.js"></script>
-<script src="src/services/cleanup-analyzer.js"></script>
-  <script src="src/services/entitlement-service.js"></script>
-<script src="src/services/backup-service.js"></script>
-<script src="src/services/telemetry-service.js"></script>
-<script src="src/services/collection-transfer-service.js"></script>
-<script src="src/services/project-service.js"></script>
-
-<script src="src/ui/search-platform-settings.js"></script>
-<script src="src/ui/saved-library.js"></script>
-<script src="src/ui/project-workbench.js"></script>
-<script src="src/ui/browsing-memory.js"></script>
 
 <!-- Main dashboard logic — loads last so the DOM is ready -->
 <script src="app.js"></script>
