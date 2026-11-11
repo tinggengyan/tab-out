@@ -1,0 +1,20 @@
+.github/workflows/verify.yml
+  h_d16e721398491f 23,27
+tests/integration/static-contract.test.js
+  h_d16e721398491f 12,20-22
+tests/unit/close-undo.test.js
+  h_d16e721398491f 135-161
+tests/unit/collected-store.test.js
+  h_d16e721398491f 128-138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f62ff3c489f15a69dd86b236767f0c7fd704c960",
+  "prompts": {},
+  "humans": {
+    "h_d16e721398491f": {
+      "author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
