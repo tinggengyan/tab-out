@@ -1,0 +1,29 @@
+extension/app.js
+  s_d9e2b6cbc2680e::t_b51baa0a196aeb 18-21,52-53,1210-1214,1328-1330,1333,1335-1341,1345-1346,1350,1362,1368,1372-1374,1376-1382,1386,1392-1395,1408,1411,1425,1429-1430,1443-1444,1447-1448,1451-1452,1464,1494,1500,1787-1790
+extension/i18n.js
+  s_d9e2b6cbc2680e::t_bd813c3d440d51 106,216
+extension/index.html
+  s_d9e2b6cbc2680e::t_39c2ecec279edf 94-106,174
+extension/lib/collected-store.js
+  s_d9e2b6cbc2680e::t_540ae15c06207a 1-138
+tests/integration/static-contract.test.js
+  s_d9e2b6cbc2680e::t_698feef2db583d 71-82
+tests/unit/collected-store.test.js
+  s_d9e2b6cbc2680e::t_d994790e33cb27 1-113
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "00f9dad38de2ee9363a0d70fbf0deff7c653a78f",
+  "prompts": {},
+  "sessions": {
+    "s_d9e2b6cbc2680e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_d9e2b6cbc2680e",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
