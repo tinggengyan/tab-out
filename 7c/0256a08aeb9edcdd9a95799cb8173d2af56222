@@ -1,0 +1,33 @@
+CLAUDE.md
+  s_c2dfbe8ec3f6a7::t_e5a0fd9daa3898 61
+docs/ai-tasks/2026-11-12-search/design.md
+  s_c2dfbe8ec3f6a7::t_8e37bd77b757bb 63,113-114
+docs/ai-tasks/2026-11-12-search/implementation.md
+  s_c2dfbe8ec3f6a7::t_5d88181c92c6a1 5,29,33,64,66,68-75,83
+extension/app.js
+  s_c2dfbe8ec3f6a7::t_feb9afdd47884d 1927,1960,1966,1968,2062-2065,2069-2070,2174-2176,2244-2247,2249-2250
+extension/lib/search.js
+  s_c2dfbe8ec3f6a7::t_ff667b85f88cbb 8-10,20-21,32,36,56,63
+tests/unit/search.test.js
+  s_c2dfbe8ec3f6a7::t_9d6e380403ee22 83,97,101-108
+tools/chrome-home-e2e.mjs
+  s_c2dfbe8ec3f6a7::t_f54d0537ce16c6 460-504
+tools/chrome-search-e2e.mjs
+  s_c2dfbe8ec3f6a7::t_6c7f39ec848950 76,98-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7c0256a08aeb9edcdd9a95799cb8173d2af56222",
+  "prompts": {},
+  "sessions": {
+    "s_c2dfbe8ec3f6a7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_c2dfbe8ec3f6a7",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
