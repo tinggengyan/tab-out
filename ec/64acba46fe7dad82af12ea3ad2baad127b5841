@@ -1,0 +1,31 @@
+extension/app.js
+  s_ef9fe905c6dda6::t_bc5c676336e022 18-21,155,162-163,165-174,374-377,379-381,383-389,759-761,806,989-993,1020-1073,1122,1128,1130,1133-1134,1145,1147,1154,1156-1157,1204,1206-1207,1212,1218-1220,1227,1230-1231,1233,1237,1239-1244,1246-1250,1254,1256-1257,1259-1275,1277-1285,1348-1349,1354,1361-1362,1364-1374,1376-1383
+extension/i18n.js
+  s_ef9fe905c6dda6::t_c09fd8b3a885e2 115-119,225-229
+extension/index.html
+  s_ef9fe905c6dda6::t_80072d1367ae3d 161,173
+extension/lib/close-undo.js
+  s_ef9fe905c6dda6::t_54382c4ea33b13 1-77
+extension/style.css
+  s_ef9fe905c6dda6::t_5c84c132740710 595-609
+tests/integration/static-contract.test.js
+  s_ef9fe905c6dda6::t_55e84c7b2cc36b 62-70
+tests/unit/close-undo.test.js
+  s_ef9fe905c6dda6::t_aa0c0e890892c4 1-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "ec64acba46fe7dad82af12ea3ad2baad127b5841",
+  "prompts": {},
+  "sessions": {
+    "s_ef9fe905c6dda6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_ef9fe905c6dda6",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
