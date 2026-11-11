@@ -18,6 +18,7 @@
 const {
   escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl, duplicateTabIds, createUndoController,
   createCollectedStore, migrateLegacy, collectableTabs, restoreTargets, buildExport, parseImport,
+  createRefreshScheduler,
 } = TabOutLib;
 
 // Every close goes through this controller so it can be undone for 30 seconds.
@@ -986,6 +987,34 @@ async function renderStaticDashboard() {
   const closeExtrasBtn = document.getElementById('closeExtrasBtn');
   if (closeExtrasBtn) closeExtrasBtn.textContent = t('btn.closeExtras');
 
+  await renderOpenTabs();
+
+  // --- Render "Saved for Later" column ---
+  await renderDeferredColumn();
+
+  // Hide broken favicons (inline onerror blocked by extension CSP)
+  document.querySelectorAll('.deferred-favicon').forEach(img => {
+    img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
+  });
+
+  // --- Render Tab Groups (OneTab) ---
+  await renderTabGroups();
+}
+
+/**
+ * renderOpenTabs()
+ *
+ * Re-reads every open tab and redraws the site cards and the header.
+ * Also runs on its own whenever tabs change in any window, so it keeps
+ * expanded "+N more" rows open and the keyboard focus on the same page.
+ */
+async function renderOpenTabs() {
+  const missions = document.getElementById('openTabsMissions');
+  const expanded = new Set([...missions.querySelectorAll('.page-chips-overflow')]
+    .filter(overflow => overflow.style.display === 'contents')
+    .map(overflow => overflow.closest('.mission-card')?.dataset.domainId));
+  const focusedUrl = document.activeElement?.closest?.('#openTabsMissions .page-chip')?.dataset.tabUrl;
+
   // --- Fetch tabs ---
   await fetchOpenTabs();
   const realTabs = getRealTabs();
@@ -1013,23 +1042,27 @@ async function renderStaticDashboard() {
     openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
     fitCardActions();
-  } else if (openTabsSection) {
+  } else if (openTabsSection && !missions.querySelector('.missions-empty-state')) {
+    // Keep "inbox zero" on screen once the last card has been closed.
     openTabsSection.style.display = 'none';
   }
 
-  // --- Check for duplicate Tab Out tabs ---
-  checkTabOutDupes();
-
-  // --- Render "Saved for Later" column ---
-  await renderDeferredColumn();
+  missions.querySelectorAll('.mission-card').forEach(card => {
+    if (!expanded.has(card.dataset.domainId)) return;
+    const overflow = card.querySelector('.page-chips-overflow');
+    if (!overflow) return;
+    overflow.style.display = 'contents';
+    card.querySelector('[data-action="expand-chips"]')?.remove();
+  });
+  if (focusedUrl) missions.querySelector(`.page-chip[data-tab-url="${CSS.escape(focusedUrl)}"]`)?.focus();
 
   // Hide broken favicons (inline onerror blocked by extension CSP)
-  document.querySelectorAll('.chip-favicon, .deferred-favicon').forEach(img => {
+  missions.querySelectorAll('.chip-favicon').forEach(img => {
     img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
   });
 
-  // --- Render Tab Groups (OneTab) ---
-  await renderTabGroups();
+  // --- Check for duplicate Tab Out tabs ---
+  checkTabOutDupes();
 }
 
 async function renderDashboard() {
@@ -1064,6 +1097,7 @@ function animateChipOut(chip, { confetti = false } = {}) {
     const rect = chip.getBoundingClientRect();
     shootConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
   }
+  chip.classList.add('closing');
   chip.style.transition = 'opacity 0.2s, transform 0.2s';
   chip.style.opacity    = '0';
   chip.style.transform  = 'scale(0.8)';
@@ -1853,6 +1887,22 @@ if (typeof ResizeObserver !== 'undefined') {
   if (missionsEl) new ResizeObserver(() => fitCardActions()).observe(missionsEl);
 }
 document.fonts?.ready.then(() => fitCardActions());
+
+// Follow tabs opened, retitled or closed in any window. Our own closes fire
+// these events too, so wait until their animation has finished.
+const liveRefresh = createRefreshScheduler({
+  render:   renderOpenTabs,
+  isHidden: () => document.hidden,
+  isBusy:   () => actionInProgress || Boolean(document.querySelector('#openTabsMissions .closing')),
+  onError:  err => console.warn('[tab-out] Live refresh failed:', err),
+});
+chrome.tabs.onCreated.addListener(liveRefresh.request);
+chrome.tabs.onRemoved.addListener(liveRefresh.request);
+chrome.tabs.onReplaced.addListener(liveRefresh.request);
+chrome.tabs.onUpdated.addListener((_tabId, change) => {
+  if ('url' in change || 'title' in change || 'pinned' in change) liveRefresh.request();
+});
+document.addEventListener('visibilitychange', () => { if (!document.hidden) liveRefresh.flush(); });
 
 
 /* ----------------------------------------------------------------

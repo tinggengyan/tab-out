@@ -36,7 +36,8 @@ npm run package               # dist/tab-out-3.0.0-store.zip
 - zero http(s) requests from the page;
 - each core action takes one click and can be undone;
 - titles are escaped;
-- the v2.3 → v3 migration works.
+- the v2.3 → v3 migration works;
+- pages opened or closed in another window appear without a reload (scenario 14, a regression guard rather than a §5 check).
 
 CI (`.github/workflows/verify.yml`, every push and PR) runs `npm test`, `npm run check`, a grep for remote scripts and inline handlers, and `npm run package`. It does not run the browser suite, so run `npm run e2e:home` locally before merging UI changes.
 
@@ -53,8 +54,10 @@ Manual testing: load `extension/` unpacked. Refresh the new tab after page chang
   | `grouping.js` | `groupTabsBySite` (homepages first, `config.js` overrides), `duplicateTabIds` (keeps a pinned, then the active, then the first copy), `faviconUrl` (Chrome `_favicon`; never Google). |
   | `close-undo.js` | `createUndoController`. All user-tab closes go through `close(tabs, meta)`. It closes by tab id, skips pinned or vanished tabs, and remembers one operation for 30 seconds. `undo()` reopens tabs in their original window and index, or in a new window if that one is gone. |
   | `collected-store.js` | Stash records under `collectedGroupsV3`, restored OneTab-style (restoring removes the record). `migrateLegacy` copies the owner's 2.x `workspacesV2` projects in once, idempotent by `sourceId`. |
+  | `live-refresh.js` | `createRefreshScheduler`. Folds bursts of tab events into at most one re-render per 200ms. It waits while an action or a close animation runs, skips while the page is hidden, and catches up on `visibilitychange`. |
   | `config-io.js` | Export format v3. Import also accepts the original v1 file and the 2.x backup. |
 
+- `renderOpenTabs()` in `app.js` redraws the site cards and the header. It runs after actions and, via `live-refresh.js`, whenever `chrome.tabs.onCreated` / `onRemoved` / `onReplaced` / `onUpdated` (url, title or pinned) fire in any window. It keeps expanded "+N more" rows and keyboard focus, and leaves the "inbox zero" state on screen after the last card closes.
 - `extension/app.js` renders the page and handles every `data-action` click through document-level event delegation. Close and stash actions run one at a time (`exclusive()`), and an action that closed nothing leaves the current undo toast alone. The actions are:
   - site cards: `close-domain-tabs`, `collect-domain-tabs`, `dedup-keep-one`;
   - header: `dedup-all`, `collect-all-tabs`, `close-all-open-tabs`;

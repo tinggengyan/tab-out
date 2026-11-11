@@ -293,11 +293,31 @@ try {
   await pause(150);
   await evaluate(`document.querySelector('[data-action="close-all-open-tabs"]')?.click()`);
   await waitFor(`chrome.tabs.query({}).then(tabs => tabs.filter(tab => tab.url.includes('.localhost:${port}/')).length === 0)`, 'all closed by double click');
-  await pause(500);
+  await pause(1000); // long enough for the live refresh that follows our own closes
   assert.equal(await undoOffered(), true, 'undo is still offered after a double click');
+  assert.equal(await evaluate(`Boolean(document.querySelector('#openTabsMissions .missions-empty-state')?.getClientRects().length)`), true,
+    'the "inbox zero" state stays on screen after closing everything');
   await undo();
   await waitFor(`chrome.tabs.query({}).then(tabs => tabs.filter(tab => (tab.url || tab.pendingUrl || '').includes('.localhost:${port}/')).length === ${openBefore})`, 'double-click close-all undone');
   pass('13 double-clicking close all keeps one undo for everything');
+
+  // 14. pages opened, retitled or closed in another window show up without a reload,
+  //     and the re-render keeps an expanded card expanded and the keyboard focus in place
+  await reloadDashboard();
+  const live = Array.from({ length: 10 }, (_, index) => url('live', `p${index}`));
+  const liveWindow = await evaluate(`chrome.windows.create({ url: ${JSON.stringify(live)}, focused: false }).then(win => win.id)`);
+  const liveChips = `${card('live')} .page-chip[data-action="focus-tab"]`;
+  await waitFor(`document.querySelectorAll(${JSON.stringify(liveChips)}).length === 10`, 'pages opened in another window appear');
+  await waitFor(`document.querySelector(${JSON.stringify(card('live'))}).textContent.includes('live /p0')`, 'their titles arrive');
+  await click(`${card('live')} [data-action="expand-chips"]`);
+  await evaluate(`document.querySelector(${JSON.stringify(`${liveChips}[data-tab-url="${live[0]}"]`)}).focus()`);
+  await evaluate(`chrome.tabs.create({ windowId: ${liveWindow}, url: ${JSON.stringify(url('live', 'p10'))}, active: false })`);
+  await waitFor(`document.querySelectorAll(${JSON.stringify(liveChips)}).length === 11`, 'one more page in that window appears');
+  assert.equal(await evaluate(`document.querySelector(${JSON.stringify(`${card('live')} .page-chips-overflow`)}).style.display`), 'contents', 'expanded card stays expanded');
+  assert.equal(await evaluate(`document.activeElement?.dataset.tabUrl`), live[0], 'keyboard focus stays on the same page');
+  await evaluate(`chrome.windows.remove(${liveWindow})`);
+  await waitFor(`!document.querySelector(${JSON.stringify(card('live'))})`, 'closing that window removes its card');
+  pass('14 tabs changed in another window appear without a reload');
 
   process.stdout.write(`PASS home guard [${locale}]\n`);
 } finally {

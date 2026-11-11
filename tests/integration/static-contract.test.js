@@ -91,3 +91,14 @@ test('import and export go through config-io and never touch the legacy tabGroup
   assert.ok(scripts.indexOf('lib/collected-store.js') < scripts.indexOf('lib/config-io.js'), 'config-io depends on collected-store');
   assert.ok(scripts.indexOf('lib/config-io.js') !== -1 && scripts.indexOf('lib/config-io.js') < scripts.indexOf('app.js'));
 });
+
+test('the open-tabs view follows tab changes in other windows', () => {
+  const app = read('app.js');
+  assert.match(app, /createRefreshScheduler\(/);
+  for (const event of ['onCreated', 'onRemoved', 'onUpdated', 'onReplaced']) {
+    assert.match(app, new RegExp(`chrome\\.tabs\\.${event}\\.addListener\\(`), `app.js must listen to chrome.tabs.${event}`);
+  }
+  assert.match(app, /addEventListener\('visibilitychange'/, 'a hidden page catches up when shown again');
+  const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
+  assert.ok(scripts.indexOf('lib/live-refresh.js') !== -1 && scripts.indexOf('lib/live-refresh.js') < scripts.indexOf('app.js'));
+});

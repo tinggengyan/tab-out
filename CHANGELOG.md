@@ -6,6 +6,7 @@ Back to the soul: open tabs grouped by site, closed, deduplicated or stashed in 
 
 - Rebuilt from the original domain-grouped dashboard (`40579ec`). The 2.x workbench is archived at tag `v2.3-workbench-archive`; projects, snapshots, trash, unified search, browsing memory and AI, rules and templates, licensing, telemetry, keyboard commands and the omnibox keyword are gone.
 - Every site card has one row of buttons: close all, stash, and close duplicates (only when there are any). The header adds close all duplicates, stash all and close all, across every window. Row buttons appear on hover or keyboard focus.
+- The page follows tabs in every window while it is open: pages opened, retitled or closed elsewhere show up without a reload. A Tab Out tab in the background catches up when you switch to it.
 - Closing, deduplicating, stashing and saving for later can be undone for 30 seconds; pages return to their original window and position. Pinned tabs are never closed or stashed. "Close all" asks once, the first time.
 - Stashed groups sit above Saved for later in the right column. "Restore all" reopens the pages that are not already open and removes the group; a single page can be restored on its own.
 - On first start, 2.x projects are copied into stashed groups once. Old data is left untouched. Import also accepts the original fork's file and the 2.x backup.

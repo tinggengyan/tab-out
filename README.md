@@ -23,6 +23,7 @@ The agent will walk you through it. Takes about 1 minute.
 ## Features
 
 - **Every tab at a glance**, one card per site, across all windows
+- **Always current**: tabs you open or close in another window show up without reloading
 - **Homepages group** pulls Gmail inbox, X home, YouTube, LinkedIn and GitHub homepages into one card
 - **One click per site**: close all, stash, close duplicates — one row of buttons on every card
 - **One click for everything**: close all duplicates, stash all, close all
