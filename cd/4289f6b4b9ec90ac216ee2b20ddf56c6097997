@@ -1,0 +1,748 @@
+extension/src/services/project-service.js
+  s_cacfbca7fde67f::t_318bdacd669239 110,114,136,138-139
+  s_cacfbca7fde67f::t_1130b6cf1ab38a 82-83,201-205,208,210
+  s_cacfbca7fde67f::t_ee6cce4abadc5e 213,219-224,230-231,265
+  s_cacfbca7fde67f::t_f84ce047d0475d 4-5,7-79,87,127-128,132,137,140,142-145,149-151,233-249,252-253,261,270
+  s_cacfbca7fde67f::t_13599ad97317c9 100-101,112,121
+  s_cacfbca7fde67f::t_6b0dce84b3e4e8 1-3,6,80-81,84-86,88-99,102-104,106-109,111,113,115-120,122-126,129-131,133-135,141,146-148,152-200,206-207,209,211-212,214-218,225-229,232,250-251,254-260,262-264,266-269,271-273
+  s_cacfbca7fde67f::t_9c701cba0942c0 105
+docs/PRIVACY.md
+  s_cacfbca7fde67f::t_47e2d833367bea 3,7-13
+  s_cacfbca7fde67f::t_3086e5f0db5ec2 14
+tools/chrome-project-e2e.mjs
+  s_cacfbca7fde67f::t_eb253c65e74a87 92
+  s_cacfbca7fde67f::t_8ad48f68a88758 37,218
+  s_cacfbca7fde67f::t_3f7b2f8d742445 4-5,56,62,77,198-208,229-230
+  s_cacfbca7fde67f::t_f2fa7dd33aad33 76
+  s_cacfbca7fde67f::t_2c987f2c47b0f8 119
+  s_cacfbca7fde67f::t_072a3e1d5b7cd9 161
+  s_cacfbca7fde67f::t_bab839454905fc 1-3,6-11,13-24,31-36,38-42,44-45,47-52,64-66,74,90-91,93-106,108-114,118,120-138,148-157,159-160,163-176,178-182,184-197,209-217,219-226,228,231-241
+  s_cacfbca7fde67f::t_f008e60c87f64c 162
+  s_cacfbca7fde67f::t_7cbe5835f0b38f 177
+  s_cacfbca7fde67f::t_149d6148d7d93e 12,25-30,43,46,53-55,57-61,63,75,78-89,107,227
+  s_cacfbca7fde67f::t_b493cceb0874e1 139-147
+  s_cacfbca7fde67f::t_9665680183caf9 115-116
+  s_cacfbca7fde67f::t_724f0c60ba05b8 67-73
+  s_cacfbca7fde67f::t_fdb1c762470755 117,158,183
+docs/ai-tasks/2026-11-05-release-convergence/acceptance.md
+  s_cacfbca7fde67f::t_1d34bbee1320bc 1-67
+docs/ai-tasks/2026-11-01-project-workbench/design.md
+  s_cacfbca7fde67f::t_0705ba3f5787b9 1-29,31,33-37,39-46
+  s_cacfbca7fde67f::t_290e48a7ca2568 30,32,38
+docs/ai-tasks/2026-11-05-release-convergence/ui-implementation.md
+  s_cacfbca7fde67f::t_a445e5fda15cbc 54-69
+  s_cacfbca7fde67f::t_f485a5d5b916ea 1-44,46-47
+  s_cacfbca7fde67f::t_9b7d93fd185d73 48-53
+  s_cacfbca7fde67f::t_ee01bf084d0d7c 70-87
+  s_cacfbca7fde67f::t_d57f05b6dbfaa2 45
+docs/ai-tasks/2026-11-06-saved-flow-redesign/acceptance.md
+  s_cacfbca7fde67f::t_6042e2181b9e9b 1-32
+tests/unit/browsing-memory-runtime.test.js
+  s_cacfbca7fde67f::t_e792457358922a 1-39,41-45,47-151,174
+  s_cacfbca7fde67f::t_69880f35e31b86 46
+  s_cacfbca7fde67f::t_1e173c9f2cf778 40,152-173
+tools/chrome-memory-e2e.mjs
+  s_cacfbca7fde67f::t_36d9283daea76e 4,160-162
+  s_cacfbca7fde67f::t_8ad48f68a88758 62,196
+  s_cacfbca7fde67f::t_c4c94012cd7c03 90,148-159
+  s_cacfbca7fde67f::t_774226742fd385 1-3,5-41,43-61,63-84,86-89,91-106,123-147,163-177,194-195,197-200,202-206,209-215
+  s_cacfbca7fde67f::t_7cd1fba6f43849 207-208
+  s_cacfbca7fde67f::t_f274d0596552e6 107-122
+  s_cacfbca7fde67f::t_fa3052fdef31f0 178-193
+  s_cacfbca7fde67f::t_96ee3c97766868 42,85
+  s_cacfbca7fde67f::t_1155bfdfeae128 201
+tests/unit/entitlement-service.test.js
+  s_cacfbca7fde67f::t_1130b6cf1ab38a 58,73
+docs/prototypes/design-qa.md
+  s_cacfbca7fde67f::t_60d6f3135480ac 1,5,7,9,11,13,15-19,21,23-28,30,32,34
+  s_cacfbca7fde67f::t_7c57832bcc0123 2-4,6,8,10,12,14,20,22,29,31,33
+tests/unit/browsing-memory-content.test.js
+  s_cacfbca7fde67f::t_1ded34c61f7944 1-58
+docs/ai-tasks/2026-11-06-saved-flow-redesign/task.md
+  s_cacfbca7fde67f::t_adb3b012b562f3 1-28,31-40
+  s_cacfbca7fde67f::t_8818bfbadc57ad 29-30
+docs/ai-tasks/2026-11-06-saved-flow-redesign/implementation-ui.md
+  s_cacfbca7fde67f::t_51c70969271867 54-59
+  s_cacfbca7fde67f::t_da056962596c42 60-64
+  s_cacfbca7fde67f::t_177d5895038fa0 65-69
+  s_cacfbca7fde67f::t_960c1b96e64a21 1-2,4-37
+  s_cacfbca7fde67f::t_ec102e262c3b34 3,38-53
+extension/src/ui/project-workbench.css
+  s_cacfbca7fde67f::t_1281810e8d89dc 36-39
+  s_cacfbca7fde67f::t_913bff490ad977 1-30,32-35,40-91
+  s_cacfbca7fde67f::t_a7e6ae1cb309ad 31,92-130
+tools/check-javascript.mjs
+  s_cacfbca7fde67f::t_47e2d833367bea 1-19
+tests/unit/saved-library-ui.test.js
+  s_cacfbca7fde67f::t_5cb52119708c67 156-167
+  s_cacfbca7fde67f::t_dc6e13b804e4c1 168-288,290-302,328,346-347,352,357,362
+  s_cacfbca7fde67f::t_a39e732bb8b832 289,303-327
+  s_cacfbca7fde67f::t_e382a47ff88d0a 64-110,112-154
+  s_cacfbca7fde67f::t_15986e15789a7d 1-63,155
+  s_cacfbca7fde67f::t_c92a746ccac4b5 111,329-345,348-351,353-356,358-361
+docs/ai-tasks/2026-11-06-saved-flow-redesign/implementation.md
+  s_cacfbca7fde67f::t_e0f4761309161f 1-48
+docs/ai-tasks/2026-11-05-release-convergence/planning.md
+  s_cacfbca7fde67f::t_c58787ff89d166 1-9
+docs/backlog-reviews/2026-11-01-feature-selection.md
+  s_cacfbca7fde67f::t_d85c02d211a992 1-90
+extension/src/storage/browsing-memory-repository.js
+  s_cacfbca7fde67f::t_a147d857cee75d 1-128,130-131,133-189,191-208
+  s_cacfbca7fde67f::t_f8cb2d790003a9 129,132,190
+extension/locales/zh-TW.js
+  s_cacfbca7fde67f::t_a434801eab09f6 264
+  s_cacfbca7fde67f::t_1a0df240f14680 599
+  s_cacfbca7fde67f::t_70c16cf83bc94d 1-4,57-62,65-79,81-84,86-94,97-106,108,110-111,113-118,120-123,126-156,159,166-181,183-184,186-189,191,194,198,201-204,207,210-212,214-231,233-237,239-249,252-255,258-263,265-290,292-308,310,312-317,319-330,332-335,337-340,342-346,348-353,358,370,373,376,378,380,382-390,393,397-400,402,404-405,407-411,413,415-418,420,424-425,428,431,435,437-440,442-448,450-451,453-454,457-458,460-465,467-470,472-474,476-480,482-492,494-498,500-514,518,520-521,523-536,538-541,543-553,555-569,571-576,578,580,582,584-585,588,590-598,603-607,610-612,614,616-621,623-625,627-632,635-639,642-645
+  s_cacfbca7fde67f::t_11c48cb02e5158 40-56,158,347,394-395,455-456,459,481,493,542,583,586,589,622
+  s_cacfbca7fde67f::t_ab436f99b7183f 633
+  s_cacfbca7fde67f::t_e0eaf1ee69f168 36-38,209,256-257,355,357,369,372,374-375,377,381,412,414,426,429-430,432,434,436,475
+  s_cacfbca7fde67f::t_332420b7f2e224 371
+  s_cacfbca7fde67f::t_d42d1cc2504b62 63-64,80,85,107,109,112,119,124-125,157,160-165,182,185,190,192-193,195-197,199-200,205-206,208,213,232,238,250-251,291,309,311,318,331,336,341,401,433,449,452,499,537,554,577,587,608-609,613,626,640-641
+  s_cacfbca7fde67f::t_79dedfa0599215 5-35,39,95-96,354,356,359-368,379,391-392,396,403,406,419,421-423,427,441,466,471,515-517,519,522,570,579,581,600-602,615,634
+tests/unit/browsing-memory-search.test.js
+  s_cacfbca7fde67f::t_deab567b87139c 51-85
+  s_cacfbca7fde67f::t_1ded34c61f7944 86-153
+  s_cacfbca7fde67f::t_da935845dc65f2 1-50
+docs/ai-tasks/2026-11-01-project-workbench/visual-review.md
+  s_cacfbca7fde67f::t_77309b5d7079e6 1-28
+docs/ai-tasks/2026-11-01-project-workbench/acceptance.md
+  s_cacfbca7fde67f::t_f6ce6c35eddbad 1-37
+tools/evaluate-memory-retrieval.mjs
+  s_cacfbca7fde67f::t_fc881c45aa4000 1-52
+docs/ai-tasks/browsing-memory/task.md
+  s_cacfbca7fde67f::t_e3879f1cd4f166 1-2,4-30,33-57
+  s_cacfbca7fde67f::t_96855d0359579a 3
+  s_cacfbca7fde67f::t_c4c94012cd7c03 31-32
+tests/unit/i18n.test.js
+  s_cacfbca7fde67f::t_1996a767a9042e 153-207
+  s_cacfbca7fde67f::t_c1166d894b5b45 1-89,91-126,151-152
+  s_cacfbca7fde67f::t_d1921e89d38a00 90,127-150
+extension/src/services/browsing-memory-text.js
+  s_cacfbca7fde67f::t_8ffa2825fbcb50 33-34,36-38,40-42,44,46
+  s_cacfbca7fde67f::t_e9edcc5f07ff30 1-7,13-24,32,35,39,43,45,47-48,53-66,70,72-74,77-79,82-123
+  s_cacfbca7fde67f::t_fd3b860e8f9751 8-12,25-31,49-52,67-69,71,75-76,80-81
+extension/background.js
+  s_cacfbca7fde67f::t_e9edcc5f07ff30 23
+  s_cacfbca7fde67f::t_e44d032993ba40 8
+  s_cacfbca7fde67f::t_4a1b3a4d6128a2 255-257,284-285,289-295
+  s_cacfbca7fde67f::t_70766ec7031bf0 20-22,24-25,28
+  s_cacfbca7fde67f::t_0bef7beae84083 29
+tests/unit/backup-service.test.js
+  s_cacfbca7fde67f::t_bdac07582f5a4e 109-117
+  s_cacfbca7fde67f::t_2e99f1e9863938 118-138
+tests/unit/project-undo-ui.test.js
+  s_cacfbca7fde67f::t_65790b2aaaa7ee 1-41,43,45-48
+  s_cacfbca7fde67f::t_7ad336ef8cb5b7 42,44
+extension/src/storage/schema.js
+  s_cacfbca7fde67f::t_e15383dce5b1e2 42-43,49-55,57-66,68-71,73,76-77,79,102-121,123-124,128-135
+  s_cacfbca7fde67f::t_a0df481b16b921 152-155
+  s_cacfbca7fde67f::t_6118797c83b1b7 44-48
+tools/chrome-e2e.mjs
+  s_cacfbca7fde67f::t_20ef39435fb23a 164-185,214-216,218-225,227-228,242-243,304
+  s_cacfbca7fde67f::t_086551d3e23855 161-163
+docs/ai-tasks/2026-11-06-saved-flow-redesign/acceptance-data.md
+  s_cacfbca7fde67f::t_aa67730b87d88a 1-21
+extension/src/ui/dashboard-navigation.css
+  s_cacfbca7fde67f::t_ee485291b5f68f 36,100
+  s_cacfbca7fde67f::t_fa5cae29f22ba9 99,101-114
+  s_cacfbca7fde67f::t_7d836aba4c8100 124,126
+  s_cacfbca7fde67f::t_cb26ad6c09a512 17-18
+  s_cacfbca7fde67f::t_8b485fe28670a8 115-123
+  s_cacfbca7fde67f::t_18e4a6bd080026 1-16,19-23,29,63,65-73,83,96-97
+  s_cacfbca7fde67f::t_1f8a2ede031efb 24-28,30-35,37-62,64,74-82,84-95,98
+  s_cacfbca7fde67f::t_eff10e0e5c11d4 125,127-128
+  s_cacfbca7fde67f::t_2a398b6d77cabe 129-144
+docs/ai-tasks/2026-11-04-fixed-footer/core-implementation.md
+  s_cacfbca7fde67f::t_b76ff7225e1e19 32,40
+  s_cacfbca7fde67f::t_c450bf7768ec53 29-31,33-38
+  s_cacfbca7fde67f::t_4b70f672ede375 39
+  s_cacfbca7fde67f::t_c888e40ac291b2 1-28
+extension/src/services/backup-service.js
+  s_cacfbca7fde67f::t_1130b6cf1ab38a 21-22
+  s_cacfbca7fde67f::t_966503f443beb3 16-18,46-48
+  s_cacfbca7fde67f::t_7a71a05387ef54 44-45
+docs/ai-tasks/2026-11-04-dashboard-layout/implementation.md
+  s_cacfbca7fde67f::t_d99614113bffc3 33,35
+  s_cacfbca7fde67f::t_e87528de336329 1-32,34,36-48
+docs/ai-tasks/2026-11-04-multilingual/zh-tw-implementation.md
+  s_cacfbca7fde67f::t_5feae864ce44f8 5,14,23,25-31
+  s_cacfbca7fde67f::t_7cfff4696954bc 1-4,6-13,15-22,24,32-36
+extension/_locales/ja/messages.json
+  s_cacfbca7fde67f::t_9f5926ae5d8bd9 1-8
+README.md
+  s_cacfbca7fde67f::t_47e2d833367bea 9-10,45,140-141
+  s_cacfbca7fde67f::t_b493cceb0874e1 5,18,27-31,55,78,83-85,133,139
+  s_cacfbca7fde67f::t_ad445794b8a887 71-76,116
+  s_cacfbca7fde67f::t_58c07ee3e68e83 146,151
+  s_cacfbca7fde67f::t_9c0ca9a86fa782 154
+  s_cacfbca7fde67f::t_da346f71d899fd 70,142-143
+  s_cacfbca7fde67f::t_373498be939b86 126
+  s_cacfbca7fde67f::t_1df248de49231d 44,99,108-109,153
+  s_cacfbca7fde67f::t_e6b42b0e6e5919 77,79-82
+  s_cacfbca7fde67f::t_d2e8fc98eae1c7 42-43
+  s_cacfbca7fde67f::t_7db34e4dc3b852 69
+  s_cacfbca7fde67f::t_0e59e5c900aa56 117
+  s_cacfbca7fde67f::t_e84e0bfe6ec2e7 144-145
+  s_cacfbca7fde67f::t_ba0c005fdab99e 152
+  s_4815ab2e3c9e4b::t_9866838b382cf3 120
+extension/locales/ja.js
+  s_cacfbca7fde67f::t_ab436f99b7183f 325,530
+  s_cacfbca7fde67f::t_332420b7f2e224 265-268,270-273,275,284,287,289-299,305-307,310-318,327,334,336-353,355,360-361,363
+  s_cacfbca7fde67f::t_9f5926ae5d8bd9 1-5,644-645
+  s_cacfbca7fde67f::t_e0eaf1ee69f168 36-38,177,219,258,269,274,300,308,328,331-332,335,354,356-359,362,540
+  s_cacfbca7fde67f::t_11c48cb02e5158 40-56,181,288,302-303,372,487,536-537,559-561,591,626
+  s_cacfbca7fde67f::t_87bf59c3f47d83 6-35,39,57-176,178-180,182-218,220-257,259-264,276-283,285-286,301,304,309,319-324,326,329-330,333,364-371,373-486,488-529,531-535,538-539,541-558,562-590,592-625,627-643
+docs/ai-tasks/2026-11-04-multilingual/ja-implementation.md
+  s_cacfbca7fde67f::t_5d76b233c3de69 19-21
+  s_cacfbca7fde67f::t_a32ad63811d295 1-6,8-18,22-25
+  s_cacfbca7fde67f::t_082a47e6f96ef6 7
+docs/backlog-reviews/2026-11-01.md
+  s_cacfbca7fde67f::t_6f11fcf3529a87 1-4,6,9-61,63
+  s_cacfbca7fde67f::t_d85c02d211a992 5,7-8,62,64-66
+tests/unit/browsing-memory-repository.test.js
+  s_cacfbca7fde67f::t_da935845dc65f2 1-54
+  s_cacfbca7fde67f::t_0918a11ae40e70 55-61
+docs/ai-tasks/2026-11-06-tab-actions-style/acceptance.md
+  s_cacfbca7fde67f::t_b0c584b1e0b902 1-15
+extension/src/ui/dashboard-navigation.js
+  s_cacfbca7fde67f::t_d5e57afad52508 6,25,43-44,61-81,93-102,110
+  s_cacfbca7fde67f::t_18e4a6bd080026 8,13,31-34,45-46,51,90
+  s_cacfbca7fde67f::t_1f8a2ede031efb 1-5,7,9-12,23-24,26-30,35-42,47-50,52-56,82-89,91-92,103-109,111-118
+  s_cacfbca7fde67f::t_5b42e8e94456aa 57-60
+  s_cacfbca7fde67f::t_b50ad7ac38ca0d 14-22
+docs/BROWSING_MEMORY_GUIDE.md
+  s_cacfbca7fde67f::t_da346f71d899fd 7,11,14
+  s_cacfbca7fde67f::t_c904de493c3392 12-13,33
+  s_cacfbca7fde67f::t_47e2d833367bea 1-6,8-10,15-32,34-41
+docs/ai-tasks/2026-11-05-project-identity/ui-implementation.md
+  s_cacfbca7fde67f::t_328f8773473e5d 1-47
+tools/chrome-test-client.mjs
+  s_cacfbca7fde67f::t_9c7ba9c9590498 81,83-84
+  s_cacfbca7fde67f::t_76cc06e6a913e0 70-71
+  s_cacfbca7fde67f::t_fc4c5225eb0e1f 46,59
+  s_cacfbca7fde67f::t_a04370209c4aa9 1-44,57-58,60-64,66,72-80,85-91,98-102
+  s_cacfbca7fde67f::t_c4e156c7bcfcdb 47-56
+  s_cacfbca7fde67f::t_21486681fe7ea7 45,65,67-69
+  s_cacfbca7fde67f::t_8d6395faaded05 82,92-97
+docs/ai-tasks/2026-11-01-project-workbench/development-plan.md
+  s_cacfbca7fde67f::t_a04370209c4aa9 1-36
+extension/src/api/chrome-session-adapter.js
+  s_cacfbca7fde67f::t_7a71a05387ef54 24-26,28
+  s_cacfbca7fde67f::t_9e84c7d6c9b006 62,64-65,74-75,77-82,90,108,135-136,146-147
+  s_cacfbca7fde67f::t_3029c35f3fce21 63,66,69-73,76,84-89,91-94,96,98-101,103-104,107,109-126,128-129,132-134,137-142,144-145,148,150,153-166,177-179
+docs/ai-tasks/2026-11-05-release-convergence/search-implementation.md
+  s_cacfbca7fde67f::t_9a5473c47209e8 1-45
+CHANGELOG.md
+  s_cacfbca7fde67f::t_da346f71d899fd 19-20,25-27
+  s_cacfbca7fde67f::t_1df248de49231d 28-35
+  s_cacfbca7fde67f::t_1ea76046a3a7a4 12
+  s_cacfbca7fde67f::t_ad445794b8a887 22-24
+  s_cacfbca7fde67f::t_16bcf4c16822a5 10-11,13-18
+  s_cacfbca7fde67f::t_d01a2aee7b83fa 21
+  s_cacfbca7fde67f::t_b493cceb0874e1 36-43
+  s_cacfbca7fde67f::t_6ee7b25e9c8a49 3-9
+extension/src/services/operation-service.js
+  s_cacfbca7fde67f::t_154cc63607acbe 91-117
+  s_cacfbca7fde67f::t_3f035f6c079a84 27,88-90,118-121
+  s_cacfbca7fde67f::t_ee6cce4abadc5e 29,33,47-62
+extension/manifest.json
+  s_cacfbca7fde67f::t_47e2d833367bea 5
+  s_cacfbca7fde67f::t_70766ec7031bf0 10-11
+  s_cacfbca7fde67f::t_cf5548d6924792 8
+tools/chrome-unified-projects-e2e.mjs
+  s_cacfbca7fde67f::t_7cbe5835f0b38f 131-132
+  s_cacfbca7fde67f::t_cfe9cf21dcd802 198-234,263,265-288
+  s_cacfbca7fde67f::t_373af3bb901117 19-37,88-90,94-106,108-111,195
+  s_cacfbca7fde67f::t_3dc4e3621e2d8b 121,126
+  s_cacfbca7fde67f::t_6170b5ced4924b 107,177-184
+  s_cacfbca7fde67f::t_41af41ebf49da4 235-262
+  s_cacfbca7fde67f::t_783637f88a036c 149,156,160
+  s_cacfbca7fde67f::t_6be0a3f2c23cd0 147-148,150-155,157-159,161-176,185
+  s_cacfbca7fde67f::t_9665680183caf9 82,116
+  s_cacfbca7fde67f::t_f008e60c87f64c 125,145
+  s_cacfbca7fde67f::t_c07a562cec53de 54,56,59
+  s_cacfbca7fde67f::t_1cc1108e322253 1-18,38-53,55,57-58,60-81,83-84,86-87,113-115,117-120,122-124,127-130,135-144,146,186-194,196-197,289-311
+  s_cacfbca7fde67f::t_3baafef59bc079 264
+  s_cacfbca7fde67f::t_f6f6cc7325249f 85,133-134
+  s_cacfbca7fde67f::t_701620e44560a5 91-93,112
+docs/ai-tasks/2026-11-05-release-convergence/implementation.md
+  s_cacfbca7fde67f::t_5f8fcd706ca039 20,25,41,52-57
+  s_cacfbca7fde67f::t_c907cd47c21be9 1-19,21-24,26-40,42-45
+  s_cacfbca7fde67f::t_970fb421ee62e7 46-51
+tests/integration/ui-contract.test.js
+  s_cacfbca7fde67f::t_cf5548d6924792 72
+  s_cacfbca7fde67f::t_6e2af22f7c2ec2 40
+extension/src/ui/project-workbench.js
+  s_cacfbca7fde67f::t_d4b57197f18dd8 469-470
+  s_cacfbca7fde67f::t_c16b6027338156 245,597
+  s_cacfbca7fde67f::t_53dd8e85ada339 100,231,356,363,652-653,656-657,660-662,665
+  s_cacfbca7fde67f::t_5adcd5403bf442 19-22,386,586
+  s_cacfbca7fde67f::t_dc4738bad1c8b7 72-82,91-92,101-102,391,398,494
+  s_cacfbca7fde67f::t_bd3adacc9ba2d1 23-26,358,445,474
+  s_cacfbca7fde67f::t_1281810e8d89dc 277-278,280-281,303,305-306
+  s_cacfbca7fde67f::t_13599ad97317c9 106,114,209,276,285,438,451,463,521-522,525-534,601-602,606,623
+  s_cacfbca7fde67f::t_c64a53d3b2f7a7 41,472
+  s_cacfbca7fde67f::t_ccd9db24cd89bb 8-9,167,269-270,279,300,302,304,307-310,370-371,649,658-659,663-664
+  s_cacfbca7fde67f::t_70efb6bee0038f 39,42-43,45,47,219-220,459-461,492-493,495,507,614,627
+  s_cacfbca7fde67f::t_ab436f99b7183f 241
+  s_cacfbca7fde67f::t_2f31307c8e7658 301
+  s_cacfbca7fde67f::t_3f9f2388c7a55e 44,46,489-490
+  s_cacfbca7fde67f::t_1996a767a9042e 655
+  s_cacfbca7fde67f::t_1ab51ed295c085 48-55,282-283,298
+  s_cacfbca7fde67f::t_fb9a80d6d821db 89,94,169,200,222-225,247,255-258,292,294,313-333,335-339,341-351,372,400,419,426,455-456,458,464-466,482-485,523-524,535-550,552-553,555-556,558-564,566,603-604
+  s_cacfbca7fde67f::t_d1921e89d38a00 232-236,475,632,654
+  s_cacfbca7fde67f::t_74cc3cde2ed75a 251,289
+  s_cacfbca7fde67f::t_8da9b0ad201f5e 87,137-154,590-591
+  s_cacfbca7fde67f::t_b33b058da0ed1b 1-7,10-18,63,71,83-86,88,90,93,103-105,107-113,115-131,134-136,155-166,168,170-199,201-208,210-218,228-230,237-240,242-244,246,248-250,252-253,259-268,271-275,286-288,290-291,293,296-297,311-312,354-355,357,359-362,364-369,373-382,385,387-389,392,394-395,402-418,420-425,427-437,439-444,446-450,452-454,462,467-468,471,473,476-481,491,496-506,508-512,515-520,567-585,587-589,594-596,598-600,607-613,615-622,624-626,628-631,633-648,650-651,666-670,672-674
+  s_cacfbca7fde67f::t_6a6ba4ac22b06f 27-38,383-384,390,393,396-397,401,513-514,592-593
+  s_cacfbca7fde67f::t_be1ef5eb0e6aa6 40,56-62,64-70,95-99,132-133,221,226-227,254,284,295,299,334,340,352-353,399,457,486-488,551,554,557,565,605,671
+extension/src/ui/browsing-memory.css
+  s_cacfbca7fde67f::t_4d9e897e04cb51 84-92
+  s_cacfbca7fde67f::t_95848fddfb0f75 1-83
+tests/unit/project-workbench-ui.test.js
+  s_cacfbca7fde67f::t_1ab51ed295c085 433-450
+  s_cacfbca7fde67f::t_1513ae874a36f3 139-175,423
+  s_cacfbca7fde67f::t_6dd8d5c15da60e 232-247
+  s_cacfbca7fde67f::t_7281655875d536 120-130
+  s_cacfbca7fde67f::t_b555c1f6dd0355 131-138
+  s_cacfbca7fde67f::t_30438551851a46 204-212
+  s_cacfbca7fde67f::t_3f9f2388c7a55e 369,378,391,403,420,432,454,477-487
+  s_cacfbca7fde67f::t_9d88033def15bb 256-268,270-292,294-296,298,300,302-303,305-306,310-324,326-348,350-354,429
+  s_cacfbca7fde67f::t_d29f6623b8d9db 176-203,213-231
+  s_cacfbca7fde67f::t_f0ff52bacb2b3d 1-49,51-119,384,396,412,431
+  s_cacfbca7fde67f::t_15986e15789a7d 248-255,372,382,386,394,401
+  s_cacfbca7fde67f::t_bc36971f5c330f 50,269,293,297,299,301,304,307-309,325,349,355-368,370-371,373-377,379-381,383,385,387-390,392-393,395,397-400,402,404-411,413-419,421-422,424-428,430,451-453,455-476
+docs/ai-tasks/browsing-memory/ui-implementation.md
+  s_cacfbca7fde67f::t_fa2b785c3e6d45 12,27
+  s_cacfbca7fde67f::t_499532de0d5e81 24
+  s_cacfbca7fde67f::t_e9ee17f673f453 1-11,13-23,25-26,28-31
+docs/ai-tasks/2026-11-05-release-convergence/acceptance-round-1.md
+  s_cacfbca7fde67f::t_8b4b77bac1d2b2 1-37
+docs/ai-tasks/2026-11-04-dashboard-layout/acceptance-review-1.md
+  s_cacfbca7fde67f::t_d99614113bffc3 1-7
+docs/ai-tasks/2026-11-05-project-identity/implementation.md
+  s_cacfbca7fde67f::t_6aab8563f318d0 27
+  s_cacfbca7fde67f::t_db499baf3c4ef9 1-26,28-39
+docs/ai-tasks/2026-11-04-dashboard-layout/developer-implementation.md
+  s_cacfbca7fde67f::t_1805c35442dc91 50
+  s_cacfbca7fde67f::t_95585838a0aba8 43-49
+  s_cacfbca7fde67f::t_d049bf4d9acef2 51-57
+  s_cacfbca7fde67f::t_1d76d0a5b94ddd 58
+  s_cacfbca7fde67f::t_f1f6678e087b4b 1-42
+extension/src/storage/project-normalization.js
+  s_cacfbca7fde67f::t_446c25647aad0f 39,43,56,61
+  s_cacfbca7fde67f::t_966503f443beb3 41-42,55
+  s_cacfbca7fde67f::t_b91ce24290003d 1-21,24-38,40,44-54,57-60,62-80
+  s_cacfbca7fde67f::t_de00d32fb6d4da 22-23
+docs/ai-tasks/2026-11-06-save-entry-clarity/implementation.md
+  s_cacfbca7fde67f::t_9e181dd7542006 3,35-38
+  s_cacfbca7fde67f::t_43de8cb4fff969 29-34
+  s_cacfbca7fde67f::t_004437104f7722 1-2,4-28
+docs/prototypes/simple-flow-evidence/production-hashes-before-domain.json
+  s_cacfbca7fde67f::t_a6695e38e0cdef 1-64
+tests/unit/browsing-memory-ui.test.js
+  s_cacfbca7fde67f::t_990cc17bbd5a4f 239-257
+  s_cacfbca7fde67f::t_8631773c54d36b 128-136,172-180
+  s_cacfbca7fde67f::t_98ea30f6891e01 148-171,181-182
+  s_cacfbca7fde67f::t_45fb0807188b90 1-3,5-6,55-100,137-147,183-230
+  s_cacfbca7fde67f::t_15986e15789a7d 231-238
+  s_cacfbca7fde67f::t_41c074955eca7e 4,7-54
+  s_cacfbca7fde67f::t_fa2b785c3e6d45 101-127
+package.json
+  s_cacfbca7fde67f::t_870eb65b27d77c 5-7,13-14
+  s_cacfbca7fde67f::t_ad445794b8a887 16
+  s_cacfbca7fde67f::t_e7ce9af323fdab 17-18
+  s_cacfbca7fde67f::t_47e2d833367bea 3,10-11,15
+docs/ai-tasks/2026-11-04-dashboard-layout/audit.md
+  s_cacfbca7fde67f::t_d9c628e4c9d9fb 1-15
+docs/ai-tasks/2026-11-04-fixed-footer/acceptance.md
+  s_cacfbca7fde67f::t_aeefa7cc5b96e1 1-26
+docs/ai-tasks/2026-11-06-unified-projects/task.md
+  s_cacfbca7fde67f::t_e29e6827b46e5b 1-45
+docs/ai-tasks/2026-11-06-tab-actions-style/implementation.md
+  s_cacfbca7fde67f::t_878d0560fc3dc5 1-18
+tests/unit/project-normalization.test.js
+  s_cacfbca7fde67f::t_a270145e951e7c 1-63
+  s_cacfbca7fde67f::t_2e99f1e9863938 64-88
+extension/style.css
+  s_cacfbca7fde67f::t_a682bf4fd5aed9 1105
+  s_cacfbca7fde67f::t_5b42e8e94456aa 1917-1922
+  s_cacfbca7fde67f::t_bd3adacc9ba2d1 1123-1154
+  s_cacfbca7fde67f::t_28dba460c86542 633-636
+docs/ai-tasks/2026-11-01-project-workbench/requirements.md
+  s_cacfbca7fde67f::t_0705ba3f5787b9 1-8,10-14,16-30,32-47,49-81
+  s_cacfbca7fde67f::t_290e48a7ca2568 9,15,31,48
+tests/helpers/session-import-fixtures.js
+  s_cacfbca7fde67f::t_2e99f1e9863938 1-33
+tests/unit/migration-service.test.js
+  s_cacfbca7fde67f::t_2e99f1e9863938 73-85
+  s_cacfbca7fde67f::t_865fd8e41f65fb 52-72
+docs/PRODUCT_BACKLOG.md
+  s_cacfbca7fde67f::t_d85c02d211a992 11,13-16,33,36,38-43
+  s_cacfbca7fde67f::t_1ea76046a3a7a4 27
+  s_cacfbca7fde67f::t_9c0ca9a86fa782 1-2,4,8-10,21-26,28-30,32,34,46-62,64-128,153-187,191-192
+  s_cacfbca7fde67f::t_bb6a58e47edb86 5-6
+  s_cacfbca7fde67f::t_95e8b9bd17a91c 3,19-20,63
+  s_cacfbca7fde67f::t_1df248de49231d 7,17,31,35,37,44-45,131,135,146,151
+  s_cacfbca7fde67f::t_6f11fcf3529a87 12,18
+  s_cacfbca7fde67f::t_33682f494be891 129-130,132-134,136-145,147-150,152,188-190
+tests/unit/chrome-session-adapter.test.js
+  s_cacfbca7fde67f::t_bdac07582f5a4e 151-157
+  s_cacfbca7fde67f::t_e64ebb9eb373dd 130-150
+docs/ai-tasks/2026-11-05-project-identity/acceptance.md
+  s_cacfbca7fde67f::t_7864fe167a3e94 1-37
+extension/i18n.js
+  s_cacfbca7fde67f::t_122f096373a66a 36-92,679-730
+  s_cacfbca7fde67f::t_53dd8e85ada339 1353,1356-1361,1373-1374
+  s_cacfbca7fde67f::t_e0eaf1ee69f168 13-15,95,156,197,236,247,252,254-256,260-261,263,278-279,282,286,306-311,313,332,334-337,340,733,794,835,874,885,890,892-894,898-899,901,916-917,920,924,944-949,951,960,969-970,972-975,978
+  s_cacfbca7fde67f::t_ab436f99b7183f 258,896
+  s_cacfbca7fde67f::t_5adcd5403bf442 284,922
+  s_cacfbca7fde67f::t_5f665f1f1bc4c0 264,902
+  s_cacfbca7fde67f::t_499532de0d5e81 97,735
+  s_cacfbca7fde67f::t_c16b6027338156 262,265,267-277,283,285,288-296,305,312,314-319,322-331,333,338,341,900,903,905-915,921,923,926-934,943,950,952-957,961-968,971,976,979
+  s_cacfbca7fde67f::t_d39536f3fc7c7a 4-5,1323,1331-1334,1339,1346-1352,1354,1362,1364-1366,1368-1371,1376-1379
+  s_cacfbca7fde67f::t_332420b7f2e224 339,977
+  s_cacfbca7fde67f::t_1e931d4685540a 17-33,160,266,280-281,350-370,379,459,463,465,482,490,504,506,508,512-514,532-536,540-544,549-551,656,664-667,798,904,918-919,988,1220
+  s_cacfbca7fde67f::t_d1921e89d38a00 34,672
+  s_cacfbca7fde67f::t_499a7e811a7dbb 98-155,157-159,161-196,198-235,237-242,736-793,795-797,799-834,836-873,875-880
+  s_cacfbca7fde67f::t_6a6ba4ac22b06f 320-321,958-959
+  s_cacfbca7fde67f::t_0477648e4a7389 243-246,248-251,253,881-884,886-889,891
+  s_cacfbca7fde67f::t_773392c3e285ce 12,16,35,93-94,96,257,259,287,297-304,342-349,553-554,556-557,560,562,566-567,579-581,583,590,600,606,608,611,731-732,734,895,897,925,935-942,980-987,989-1037,1046,1126,1130,1157,1171,1173,1175,1179-1181,1200-1203,1207-1211,1216-1218,1221,1223-1224,1227,1229,1233-1234,1246-1248,1250,1257,1267,1273,1275,1278,1355,1363,1380-1408,1411-1420,1422,1425-1437
+docs/ai-tasks/2026-11-06-tab-actions-style/task.md
+  s_cacfbca7fde67f::t_cd592c94170242 1-19
+docs/product-reviews/2026-11-06-navigation/review.md
+  s_cacfbca7fde67f::t_87d274037099e7 1-87
+extension/src/content/browsing-memory-content.js
+  s_cacfbca7fde67f::t_9a5473c47209e8 15-18
+  s_cacfbca7fde67f::t_1ded34c61f7944 37-40,48-53
+  s_cacfbca7fde67f::t_96ee3c97766868 13
+  s_cacfbca7fde67f::t_69880f35e31b86 3
+  s_cacfbca7fde67f::t_70766ec7031bf0 1-2,19,32,35,41,54,56,59-110
+  s_cacfbca7fde67f::t_b1f212571ef2c0 4-12,14,20-31,33-34,36,42-47,55,57-58
+docs/ai-tasks/2026-11-04-fixed-footer/implementation.md
+  s_cacfbca7fde67f::t_bd80233beb2fe0 1-2,4-40
+  s_cacfbca7fde67f::t_aeefa7cc5b96e1 3
+tests/unit/free-command-palette.test.js
+  s_cacfbca7fde67f::t_6243f27df35ab4 9
+  s_cacfbca7fde67f::t_e1cf7f4f22343a 49,51-57,59-65,67-74,76-100
+  s_cacfbca7fde67f::t_4d9e897e04cb51 75
+  s_cacfbca7fde67f::t_8c470ea736f382 50,58,66
+docs/ai-tasks/2026-11-06-unified-projects/acceptance-round-1.md
+  s_cacfbca7fde67f::t_62d6c2068cdfa6 1-41
+extension/_locales/zh_TW/messages.json
+  s_cacfbca7fde67f::t_70c16cf83bc94d 1-8
+docs/ai-tasks/2026-11-05-project-identity/task.md
+  s_cacfbca7fde67f::t_14784bc48dcb4b 1-35
+docs/ai-tasks/browsing-memory/backend-implementation.md
+  s_cacfbca7fde67f::t_fb25b0a0255f53 1-36
+docs/prototypes/simple-flow-evidence/before-domain-soul.html
+  s_cacfbca7fde67f::t_a6695e38e0cdef 1-81
+tools/chrome-release-e2e.mjs
+  s_cacfbca7fde67f::t_2cee9db107c58e 156
+  s_cacfbca7fde67f::t_9665680183caf9 48-49
+  s_cacfbca7fde67f::t_b68117b6908dae 1-32,34-37,39,41-46,51,61,65,73,75,78,90,125-134,136-141,144-146,154-155,157-167,169-188
+  s_cacfbca7fde67f::t_0b9c329d917444 47,50
+  s_cacfbca7fde67f::t_daf4e07494d682 91-98,102-104,106-112,116-124
+  s_cacfbca7fde67f::t_5af1bff06ed67b 53,62
+  s_cacfbca7fde67f::t_4f5fb46f7fe3cc 168
+  s_cacfbca7fde67f::t_b3d731aa8d1e7a 40,83
+  s_cacfbca7fde67f::t_a770d664e0d3bc 142-143,147-153
+  s_cacfbca7fde67f::t_9abdd8041b3d08 67,86
+  s_cacfbca7fde67f::t_859cd926ebb66c 79,82
+  s_cacfbca7fde67f::t_625e6ecb323bd0 33,38,52,54-58,60,63-64,66,68-72,74,76-77,80-81,84-85,87-89,99-101,105,113-115,135
+  s_cacfbca7fde67f::t_99c10f15fde13e 59
+.nvmrc
+  s_cacfbca7fde67f::t_870eb65b27d77c 1
+extension/src/storage/workspace-repository.js
+  s_cacfbca7fde67f::t_a0479fabf8ecc2 9-10,37
+  s_cacfbca7fde67f::t_73cdbda657474f 12-15,77,80-84,271
+  s_cacfbca7fde67f::t_e44d032993ba40 7-8,11,23-27,57,59-75,253,269
+  s_cacfbca7fde67f::t_5bd1bb4ec86b5b 32-36,38-39,78-79,85-106,142,155,178-179,204-205,219,238-241,251-252
+  s_cacfbca7fde67f::t_d4f39b2cec31ea 254
+docs/RELEASE_READINESS.md
+  s_cacfbca7fde67f::t_95e8b9bd17a91c 9
+  s_cacfbca7fde67f::t_7864fe167a3e94 8
+  s_cacfbca7fde67f::t_73eeeb2fe1fba8 5-6
+  s_cacfbca7fde67f::t_ee36d2bca779b3 1-4,11-30
+  s_cacfbca7fde67f::t_544d4aeaff0ad8 10
+  s_cacfbca7fde67f::t_5000eff644db84 7
+docs/ai-tasks/2026-11-05-project-identity/product-agreement.md
+  s_cacfbca7fde67f::t_b1d9b514ccb223 1-11
+docs/ai-tasks/2026-11-04-dashboard-layout/acceptance.md
+  s_cacfbca7fde67f::t_b741874387220f 1-55
+extension/LICENSE
+  s_cacfbca7fde67f::t_56acc9d34fb04a 1-21
+docs/ai-tasks/browsing-memory/implementation.md
+  s_cacfbca7fde67f::t_1f0f18daabb096 35
+  s_cacfbca7fde67f::t_7323a299b4ea0a 1-34,36-44
+tests/unit/command-focus.test.js
+  s_cacfbca7fde67f::t_8b7c959b8eb06d 1-35,37-81
+  s_cacfbca7fde67f::t_15986e15789a7d 36
+extension/src/ui/search-platform-settings.js
+  s_cacfbca7fde67f::t_7b8dfe25ea1ab5 6,134-139,142,157-158,163,168-170,179-180,183,185,191-192,194,206,211-212,233-235,237-238,267-276,284-286
+docs/prototypes/tab-out-simple-flow.html
+  s_cacfbca7fde67f::t_ecf6ebbf093315 1-11,18-24,26-42,46-57,62-65,71-74,76-79,83-98
+  s_cacfbca7fde67f::t_a6695e38e0cdef 12-17,25,43-45,58-61,66-70,80-82
+  s_cacfbca7fde67f::t_8601115715e0e0 75
+docs/ai-tasks/2026-11-01-project-workbench/task.md
+  s_cacfbca7fde67f::t_1320e6f7da2f3f 1-12,14,17-65,67-74
+  s_cacfbca7fde67f::t_290e48a7ca2568 13,15-16,66
+docs/ai-tasks/2026-11-04-multilingual/implementation.md
+  s_cacfbca7fde67f::t_c5315e74f8171d 1-2,4-43
+  s_cacfbca7fde67f::t_9d08b0a7630f88 3
+docs/ai-tasks/2026-11-04-fixed-footer/task.md
+  s_cacfbca7fde67f::t_a06f6800747824 1-35
+tests/unit/workspace-repository.test.js
+  s_cacfbca7fde67f::t_e64ebb9eb373dd 117-140
+  s_cacfbca7fde67f::t_2f4c7185d09a45 141-158
+docs/ai-tasks/2026-11-06-save-entry-clarity/acceptance.md
+  s_cacfbca7fde67f::t_9e181dd7542006 1-33
+extension/src/ui/saved-library.js
+  s_cacfbca7fde67f::t_15986e15789a7d 58,60
+  s_cacfbca7fde67f::t_21d507e7bac4ae 62-63,65-66,74-76,80-86,88,90-98,102-103,118-122
+  s_cacfbca7fde67f::t_1130b6cf1ab38a 33,64
+  s_cacfbca7fde67f::t_adf4679ba41579 20-32,37-38,41-54,67-73,77-79,87,89,99-101,104-117,123
+  s_cacfbca7fde67f::t_d352699ce7b88e 1-19,34-36,39-40,55-57,59,61,124-132
+docs/ai-tasks/2026-11-01-project-workbench/ui-implementation.md
+  s_cacfbca7fde67f::t_cd2c89f3af1524 48,56-57
+  s_cacfbca7fde67f::t_2256a829200c6c 50-51,60-61
+  s_cacfbca7fde67f::t_a7885ea1eb1833 49,58-59
+  s_cacfbca7fde67f::t_aa21ea88ade7a3 1-47,52-55,62-65
+extension/src/services/browsing-memory-runtime.js
+  s_cacfbca7fde67f::t_70766ec7031bf0 1-34,43-70,72-122,124-134,138,141-147,149-154,157-174,179-200,218-221,223-230,232-310,316-323,328-333
+  s_cacfbca7fde67f::t_96ee3c97766868 36-42,175-178,203-207,212-217,222,231
+  s_cacfbca7fde67f::t_69880f35e31b86 135,139-140,155-156
+  s_cacfbca7fde67f::t_1e173c9f2cf778 35,71,123,136-137,208-211
+  s_cacfbca7fde67f::t_701c7ac0d93d19 148
+  s_cacfbca7fde67f::t_aeaf0ee8dac826 201-202,311-315,324-327
+extension/app.js
+  s_cacfbca7fde67f::t_4d9e897e04cb51 848-851,873
+  s_cacfbca7fde67f::t_d0c2eaf47fb19a 601-602,3327-3328,3332-3334,3347-3359,3423
+  s_cacfbca7fde67f::t_15986e15789a7d 863
+  s_cacfbca7fde67f::t_2ff21bb101053b 53,2037,3055,3064,3067,3084
+  s_cacfbca7fde67f::t_6243f27df35ab4 897,900,3296-3300,3302,3304
+  s_cacfbca7fde67f::t_4a1b3a4d6128a2 577,590,629-630,632-633,652,714,717,787-792,794,801-802,1344,1427,1890,2047,2588,2590-2591,2849-2850,2852,2854-2856,2861,2878,3366,3417,3424-3441
+  s_cacfbca7fde67f::t_1cacfb24c86e95 1265-1280,1348,1431,1442,1460,1745,1748-1750,1914-1922,2454-2457
+  s_cacfbca7fde67f::t_1281810e8d89dc 2890
+  s_cacfbca7fde67f::t_d5e57afad52508 3365
+  s_cacfbca7fde67f::t_2d8eec9e0c9845 90-96,100-107,572-576,578-589,1772,2407,3046-3049
+  s_cacfbca7fde67f::t_446c25647aad0f 647-648
+  s_cacfbca7fde67f::t_2f31307c8e7658 46-48,803,805,833-834,839,843-847,852-862,865,867,885,904,914-916,1682,1687,1788,1817,1826,1833-1835,1923-1932,1979,2077-2078,2880-2889,2891-2899,3410,3415
+  s_cacfbca7fde67f::t_d1921e89d38a00 31-38,2067,3331
+  s_cacfbca7fde67f::t_5b42e8e94456aa 97-99,109-110,665,699,824,921,1062,1603,1775,1852-1866,2743-2744,2746-2756,2761-2762,3317-3326,3330,3335-3346,3360-3362,3364,3391
+  s_cacfbca7fde67f::t_34bd4470e19704 2745,2757-2760,3329,3413
+  s_cacfbca7fde67f::t_966503f443beb3 3056-3059
+  s_cacfbca7fde67f::t_6006a753b16dcc 3231-3245,3277
+  s_cacfbca7fde67f::t_4157888b0ef474 30,532,740,3363
+  s_cacfbca7fde67f::t_045c80cf3f624f 108,132-133,138,591,646,705-713,715,2115-2117,2138,2171-2172,2859-2860,2863-2866,2869-2870,2873-2875,3381-3390,3392-3409,3411-3412,3414,3416,3418-3422
+docs/prototypes/simple-flow-evidence/design-qa-before-domain.md
+  s_cacfbca7fde67f::t_60d6f3135480ac 1-32
+tools/fixtures/memory-retrieval.json
+  s_cacfbca7fde67f::t_9ca1e9d0055f25 1-42
+docs/ai-tasks/2026-11-05-release-convergence/task.md
+  s_cacfbca7fde67f::t_123587ec844e5c 1-48,51
+  s_cacfbca7fde67f::t_352e6d74887971 49-50
+docs/ai-tasks/2026-11-06-saved-flow-redesign/implementation-data.md
+  s_cacfbca7fde67f::t_5bd29d3aef7409 38
+  s_cacfbca7fde67f::t_c6f77ee4a61c5b 1-27
+  s_cacfbca7fde67f::t_66b02dd513362f 28-37
+tools/chrome-dashboard-layout-e2e.mjs
+  s_cacfbca7fde67f::t_396bd55b138e89 274
+  s_cacfbca7fde67f::t_2632908e9c1396 14,252-256,353
+  s_cacfbca7fde67f::t_fa21cd4e1bf286 36,88,96-97
+  s_cacfbca7fde67f::t_b1f78a6d96c802 25-26,182,207-208,210-219
+  s_cacfbca7fde67f::t_20ef39435fb23a 278
+  s_cacfbca7fde67f::t_ac9a618938b4d6 281-286,289
+  s_cacfbca7fde67f::t_d38fc37fad6c0b 28,74-76,83,142,194,196-199,201-206,243-248,258,260-263,341,343-347,350
+  s_cacfbca7fde67f::t_8ad48f68a88758 100,133
+  s_cacfbca7fde67f::t_86a0e58cf2a727 1-13,15-24,27,29-35,71-73,77-82,84-85,89-94,98-99,101-104,106-114,124-132,134,141,143-146,149-150,152,155-156,158-159,161-162,165-168,170,173,175,177-181,220-230,232-233,238-242,249-251,264-265,292-302,311-312,314,316-320,322,324-325,334-340,348-349,351-352,354-356,358-361
+  s_cacfbca7fde67f::t_b3d684a577be7e 86-87,105,115,151,275,310,313
+  s_cacfbca7fde67f::t_5c2e87f3c6ef91 163-164
+  s_cacfbca7fde67f::t_d90e3638e14997 187-189
+  s_cacfbca7fde67f::t_556176a8a3e119 209,357
+  s_cacfbca7fde67f::t_a91002f7e3271e 234,236-237
+  s_cacfbca7fde67f::t_1155bfdfeae128 95,147-148,153-154,157,160,169,171-172,174,176,195,200,231,315,323,342
+  s_cacfbca7fde67f::t_042097785b36ef 37,41-70,116-123,135-140,183-186,190-193,235,257,266-273,279-280,287-288,290-291,321,326-333
+  s_cacfbca7fde67f::t_745c9db2e90fa1 38-40
+  s_cacfbca7fde67f::t_4fe4a9597179e5 259
+  s_cacfbca7fde67f::t_e86e704b6be015 276-277
+  s_cacfbca7fde67f::t_3c451dac077520 303-309
+docs/ai-tasks/2026-11-01-project-workbench/implementation.md
+  s_cacfbca7fde67f::t_77309b5d7079e6 1-54
+tests/unit/operation-service.test.js
+  s_cacfbca7fde67f::t_4714375e4f0e8f 113-160
+  s_cacfbca7fde67f::t_8d745060c023e8 161-185
+  s_cacfbca7fde67f::t_bb47ae75796865 89-112
+tests/unit/dashboard-navigation.test.js
+  s_cacfbca7fde67f::t_30438551851a46 1-4,8-9,20-24,26-36,39-44,54-57,60-62,64-68,72-77,79-85,87-95,98,101,103,105-107,109,112-114,117-119,121,132-139,193
+  s_cacfbca7fde67f::t_a707cf97783de8 25,38,45-53,59,63,69-71,78,86,96-97,99-100,102,104,108,110-111,115-116,120,122-131
+  s_cacfbca7fde67f::t_e802d6f0d07e9d 5-7,10-19,37,58,140-192
+tests/unit/project-compatibility-ui.test.js
+  s_cacfbca7fde67f::t_2e99f1e9863938 149-176,193
+  s_cacfbca7fde67f::t_c6441d00f02687 76
+  s_cacfbca7fde67f::t_e071eb774ecb66 1-75,77-148
+  s_cacfbca7fde67f::t_d4f5dd37b29069 177-192
+tests/unit/saved-menu-escape.test.js
+  s_cacfbca7fde67f::t_6006a753b16dcc 1-37
+extension/src/storage/rule-repository.js
+  s_cacfbca7fde67f::t_446c25647aad0f 6-8,24,36-55,68
+extension/src/services/entitlement-service.js
+  s_cacfbca7fde67f::t_e44d032993ba40 30,75
+tests/unit/project-service.test.js
+  s_cacfbca7fde67f::t_1fbcbb20e69d09 391-442
+  s_cacfbca7fde67f::t_14b6a69eef11b8 276-285
+  s_cacfbca7fde67f::t_8d745060c023e8 443-499
+  s_cacfbca7fde67f::t_372d51bfec54e9 1-68,70-211,274-275,286
+  s_cacfbca7fde67f::t_a6d4683dd0bca4 69,212-273
+  s_cacfbca7fde67f::t_2f4c7185d09a45 287-390
+docs/ai-tasks/2026-11-04-dashboard-layout/task.md
+  s_cacfbca7fde67f::t_0b3d885ef52677 1-2,5-46
+  s_cacfbca7fde67f::t_b741874387220f 3-4
+docs/PROJECT_WORKBENCH_GUIDE.md
+  s_cacfbca7fde67f::t_b493cceb0874e1 2-6,8,10-12,14,17,21,24-25,29-33,35-36
+  s_cacfbca7fde67f::t_1ea76046a3a7a4 13
+  s_cacfbca7fde67f::t_26188cc92964d8 23,27
+  s_cacfbca7fde67f::t_e6b42b0e6e5919 1,7,15-16,18-20
+  s_cacfbca7fde67f::t_36d6628ffc1cc0 9
+  s_cacfbca7fde67f::t_11ff88c9c693ba 22
+  s_cacfbca7fde67f::t_e0535042a6f67f 26
+  s_cacfbca7fde67f::t_0979e36c6a89ac 28
+  s_cacfbca7fde67f::t_8fe1543ddbddc6 34
+extension/src/ui/browsing-memory.js
+  s_cacfbca7fde67f::t_fa2b785c3e6d45 34,45-52,54,85-86,89,97-100,116-122
+  s_cacfbca7fde67f::t_fa5cae29f22ba9 25-33,302-307,309,389-396,402-404,413,438,462,468-469,532
+  s_cacfbca7fde67f::t_91a96ab80f55fc 1-24,35-40,42-43,53,55-56,58-84,87-88,90-91,93-96,101-104,106,123-126,128,130,132-149,151-191,216-233,235-252,276-277,279-282,285,287-296,298-301,308,310-319,321-331,333-388,397,399-401,405-406,409-412,414-418,420-422,424-425,428-430,435-437,439-447,450-453,455-457,459-461,476-482,484-487,489-491,493,495-505,507-511,514-519,526-531,533-535,539-540
+  s_cacfbca7fde67f::t_c64a53d3b2f7a7 234,512
+  s_cacfbca7fde67f::t_ec8b8cba04e7cf 192-215,433,449,458,492,513
+  s_cacfbca7fde67f::t_98ea30f6891e01 41,44,57,92,105,107,127,129,131,150,283-284,286,332,398,407-408,426-427,494
+  s_cacfbca7fde67f::t_d4494c10e4b71d 108-115,463-467
+  s_cacfbca7fde67f::t_8631773c54d36b 320,419,423,431-432,434,488,506
+  s_cacfbca7fde67f::t_53dd8e85ada339 253-275,278,297,448,454,483,520-525,536-538
+  s_cacfbca7fde67f::t_499532de0d5e81 470-475
+extension/index.html
+  s_cacfbca7fde67f::t_913bff490ad977 10,68,405-412,415-416,418-421,472,476
+  s_cacfbca7fde67f::t_95848fddfb0f75 11,431-433,477
+  s_cacfbca7fde67f::t_18e4a6bd080026 71,212,215,217
+  s_cacfbca7fde67f::t_d352699ce7b88e 172-173,228,363,365-366,381,475
+  s_cacfbca7fde67f::t_e44d032993ba40 453
+  s_cacfbca7fde67f::t_1281810e8d89dc 66,153-154
+  s_cacfbca7fde67f::t_5b42e8e94456aa 219,242,259,276,316,333,349,362,375,377,391,439-441
+  s_cacfbca7fde67f::t_ab436f99b7183f 147
+  s_cacfbca7fde67f::t_a682bf4fd5aed9 12,62-65,67,69,72,141-146,148-149,151-152,155-171,174-210,443
+  s_cacfbca7fde67f::t_1cacfb24c86e95 104-105,150,414
+  s_cacfbca7fde67f::t_13599ad97317c9 138,417
+  s_cacfbca7fde67f::t_e07a95873ed633 211,413,434
+docs/ai-tasks/2026-11-01-project-workbench/backend-implementation.md
+  s_cacfbca7fde67f::t_62b01716eea9b0 47-52
+  s_cacfbca7fde67f::t_3c98ba9066dcf8 1-46
+extension/src/domain/session.js
+  s_cacfbca7fde67f::t_966503f443beb3 17-39,120
+docs/ai-tasks/2026-11-04-multilingual/task.md
+  s_cacfbca7fde67f::t_d418da34a0c63b 1-44
+docs/ai-tasks/2026-11-06-save-entry-clarity/task.md
+  s_cacfbca7fde67f::t_91b1c5423973c8 1-20
+docs/ai-tasks/2026-11-05-release-convergence/acceptance-round-2.md
+  s_cacfbca7fde67f::t_c8ee1bb8448609 1-26
+docs/ai-tasks/2026-11-06-unified-projects/implementation.md
+  s_cacfbca7fde67f::t_63cc4cf43ebfd2 45-54
+  s_cacfbca7fde67f::t_b2e104dc6d00c7 55
+  s_cacfbca7fde67f::t_2464b5f54f5549 67-69
+  s_cacfbca7fde67f::t_95e8b9bd17a91c 3,66
+  s_cacfbca7fde67f::t_343881eedede99 1-2,4-16,18,20-44
+  s_cacfbca7fde67f::t_f99898bf202c2b 19
+  s_cacfbca7fde67f::t_4827be8182de65 17,56-65
+extension/src/services/browsing-memory-search-service.js
+  s_cacfbca7fde67f::t_fd3b860e8f9751 10-11
+  s_cacfbca7fde67f::t_6aee9ce85af9d5 29,31,49,105
+  s_cacfbca7fde67f::t_925c7c58f4a441 112
+  s_cacfbca7fde67f::t_4699baf243690b 1-5,22,24-26,32,34-35,38-43,45-48,50-54,56-57,59,61,63-74,76-86,88-89,92-101,103-104,106-110,113-127
+  s_cacfbca7fde67f::t_e9edcc5f07ff30 6-9,12-21,23,27-28,30,33,36-37,44,55,58,60,62,75,87,90-91,102,111
+docs/ai-tasks/2026-11-04-multilingual/core-implementation.md
+  s_cacfbca7fde67f::t_20e47f36fa8847 1-46
+tools/chrome-saved-flow-e2e.mjs
+  s_cacfbca7fde67f::t_1d165fd2f6c595 12,79-82,88-91,154
+  s_cacfbca7fde67f::t_1f85878787ef6a 107-120,122
+  s_cacfbca7fde67f::t_44e325054f8790 1-10,13-15,17-29
+  s_cacfbca7fde67f::t_14eb27df1f87ce 30-60,64,66-76,78,83-87,92-96,99-106,135-153
+  s_cacfbca7fde67f::t_b59246da4c6844 61-63,121,123-134
+  s_cacfbca7fde67f::t_92c6c0c03b86a1 11,16,77
+  s_cacfbca7fde67f::t_ab1b824d05875e 65,97-98
+docs/ai-tasks/2026-11-06-unified-projects/implementation-developer.md
+  s_cacfbca7fde67f::t_d9e0cb295507db 74-94
+  s_cacfbca7fde67f::t_63071093ee54e2 1-27,30-45
+  s_cacfbca7fde67f::t_e82ae59155000f 28-29,46-49
+  s_cacfbca7fde67f::t_5436c8c578f669 50-73
+docs/ai-tasks/2026-11-06-unified-projects/acceptance-round-2.md
+  s_cacfbca7fde67f::t_2867ab4248748e 1-47
+docs/ai-tasks/browsing-memory/acceptance.md
+  s_cacfbca7fde67f::t_96855d0359579a 1-39
+docs/ai-tasks/2026-11-06-unified-projects/acceptance.md
+  s_cacfbca7fde67f::t_332b6e199f53b7 1-49
+extension/src/services/openai-compatible-client.js
+  s_cacfbca7fde67f::t_925c7c58f4a441 140-141
+  s_cacfbca7fde67f::t_5fb05936ea7b84 1-139,142-152
+docs/PRODUCT_ASSESSMENT_2026-11-01.md
+  s_cacfbca7fde67f::t_efbb7323ba1263 1-4,7-107
+  s_cacfbca7fde67f::t_77309b5d7079e6 5-6
+docs/ai-tasks/2026-11-04-multilingual/acceptance.md
+  s_cacfbca7fde67f::t_9d08b0a7630f88 1-31
+design-qa.md
+  s_cacfbca7fde67f::t_aa67730b87d88a 1-35
+tools/chrome-i18n-e2e.mjs
+  s_cacfbca7fde67f::t_b3d684a577be7e 121-122,130-132
+  s_cacfbca7fde67f::t_398d38ec4116bb 1-101,108-119,124-127,135-136,138,140-141,143,152-153,156-161,163,179-184,187-222,237-246
+  s_cacfbca7fde67f::t_af1b378b3b9823 104,185-186
+  s_cacfbca7fde67f::t_72751646298f92 223-228,232-234,236
+  s_cacfbca7fde67f::t_9665680183caf9 154
+  s_cacfbca7fde67f::t_7c4a2832997b13 102-103,105-106
+  s_cacfbca7fde67f::t_689886273c5f2a 155
+  s_cacfbca7fde67f::t_4fe4a9597179e5 137,139,145-151,162
+  s_cacfbca7fde67f::t_eb253c65e74a87 120
+  s_cacfbca7fde67f::t_8d760963753a41 128-129,133-134,164-178
+  s_cacfbca7fde67f::t_a62861743cf4d1 144
+  s_cacfbca7fde67f::t_8e74d5832da0b2 123
+  s_cacfbca7fde67f::t_5a348a086a7fb1 229-231,235
+  s_cacfbca7fde67f::t_abaff8051b0277 107
+  s_cacfbca7fde67f::t_1155bfdfeae128 142
+tools/run-chrome-e2e.mjs
+  s_cacfbca7fde67f::t_a04370209c4aa9 1-3,5-22,24-35,48-49,52-65,67-98
+  s_cacfbca7fde67f::t_701c7ac0d93d19 4,36-47,50-51
+  s_cacfbca7fde67f::t_7d67f4262ab86c 23,66
+tests/unit/openai-compatible-client.test.js
+  s_cacfbca7fde67f::t_da935845dc65f2 1-42
+  s_cacfbca7fde67f::t_deab567b87139c 43-55
+docs/PRODUCT_PLAN.md
+  s_cacfbca7fde67f::t_55a2f59ae10612 183,187,253,260
+tests/unit/dashboard-refresh.test.js
+  s_cacfbca7fde67f::t_2c49c98110cd5b 1-119
+tests/unit/rule-repository.test.js
+  s_cacfbca7fde67f::t_89ef376ccb30bc 31-43
+.gitignore
+  s_4815ab2e3c9e4b::t_6c813d21f8647f 13-15
+CLAUDE.md
+  s_4815ab2e3c9e4b::t_5e22b538a865a1 7,9,11,13-32,36-116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cd4289f6b4b9ec90ac216ee2b20ddf56c6097997",
+  "prompts": {},
+  "sessions": {
+    "s_4815ab2e3c9e4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_4815ab2e3c9e4b",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    },
+    "s_cacfbca7fde67f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a13855-556b-7d60-a46c-061f367ff3e9",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
