@@ -59,3 +59,12 @@ test('the page loads the lib modules before app.js', () => {
     assert.ok(scripts.indexOf(lib) < app, `${lib} must load before app.js`);
   }
 });
+
+test('app.js closes user tabs only through the undo controller', () => {
+  const app = read('app.js');
+  const direct = [...app.matchAll(/chrome\.tabs\.remove\(/g)].length;
+  // The single allowed direct call closes extra copies of Tab Out itself.
+  assert.equal(direct, 1, 'only closeTabOutDupes may call chrome.tabs.remove directly');
+  assert.match(app, /createUndoController\(/);
+  assert.match(html, /id="toastAction"/);
+});

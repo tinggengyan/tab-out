@@ -112,6 +112,11 @@ const I18N_LOCALES = {
     'toast.collected':        'Collected {n} tabs',
     'toast.restored':         'Restored {n} tabs',
     'toast.groupDeleted':     'Group deleted',
+    'btn.undo':               'Undo',
+    'btn.dedupAll':           'Close {n} duplicates',
+    'toast.undone':           'Reopened {n} tabs',
+    'toast.undoExpired':      'Nothing to undo',
+    'confirm.closeAll':       'Close all {n} tabs in every window? You can undo for 30 seconds.',
   },
 
   'zh-CN': {
@@ -217,6 +222,11 @@ const I18N_LOCALES = {
     'toast.collected':        '已收纳 {n} 个标签页',
     'toast.restored':         '已恢复 {n} 个标签页',
     'toast.groupDeleted':     '已删除标签页组',
+    'btn.undo':               '撤销',
+    'btn.dedupAll':           '关闭 {n} 个重复',
+    'toast.undone':           '已重新打开 {n} 个标签页',
+    'toast.undoExpired':      '没有可撤销的操作',
+    'confirm.closeAll':       '关闭所有窗口中的全部 {n} 个标签页？30 秒内可以撤销。',
   },
 };
 

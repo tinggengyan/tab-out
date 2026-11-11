@@ -592,6 +592,21 @@ header {
   transform: translateX(-50%) translateY(0);
 }
 
+/* A toast with an Undo button must accept clicks while visible */
+.toast.visible.has-action { pointer-events: auto; }
+
+.toast-action {
+  margin-left: 8px;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.35);
+  color: var(--paper);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.toast-action:hover { background: rgba(255,255,255,0.12); }
+
 .toast svg {
   width: 16px;
   height: 16px;

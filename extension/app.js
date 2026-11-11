@@ -15,7 +15,10 @@
 
 'use strict';
 
-const { escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl } = TabOutLib;
+const { escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl, duplicateTabIds, createUndoController } = TabOutLib;
+
+// Every close goes through this controller so it can be undone for 30 seconds.
+const undoController = createUndoController({ tabsApi: chrome.tabs, windowsApi: chrome.windows });
 
 
 /* ----------------------------------------------------------------
@@ -59,61 +62,6 @@ async function fetchOpenTabs() {
 }
 
 /**
- * closeTabsByUrls(urls)
- *
- * Closes all open tabs whose hostname matches any of the given URLs.
- * After closing, re-fetches the tab list to keep our state accurate.
- *
- * Special case: file:// URLs are matched exactly (they have no hostname).
- */
-async function closeTabsByUrls(urls) {
-  if (!urls || urls.length === 0) return;
-
-  // Separate file:// URLs (exact match) from regular URLs (hostname match)
-  const targetHostnames = [];
-  const exactUrls = new Set();
-
-  for (const u of urls) {
-    if (u.startsWith('file://')) {
-      exactUrls.add(u);
-    } else {
-      try { targetHostnames.push(new URL(u).hostname); }
-      catch { /* skip unparseable */ }
-    }
-  }
-
-  const allTabs = await chrome.tabs.query({});
-  const toClose = allTabs
-    .filter(tab => {
-      const tabUrl = tab.url || '';
-      if (tabUrl.startsWith('file://') && exactUrls.has(tabUrl)) return true;
-      try {
-        const tabHostname = new URL(tabUrl).hostname;
-        return tabHostname && targetHostnames.includes(tabHostname);
-      } catch { return false; }
-    })
-    .map(tab => tab.id);
-
-  if (toClose.length > 0) await chrome.tabs.remove(toClose);
-  await fetchOpenTabs();
-}
-
-/**
- * closeTabsExact(urls)
- *
- * Closes tabs by exact URL match (not hostname). Used for landing pages
- * so closing "Gmail inbox" doesn't also close individual email threads.
- */
-async function closeTabsExact(urls) {
-  if (!urls || urls.length === 0) return;
-  const urlSet = new Set(urls);
-  const allTabs = await chrome.tabs.query({});
-  const toClose = allTabs.filter(t => urlSet.has(t.url)).map(t => t.id);
-  if (toClose.length > 0) await chrome.tabs.remove(toClose);
-  await fetchOpenTabs();
-}
-
-/**
  * focusTab(url)
  *
  * Switches Chrome to the tab with the given URL (exact match first,
@@ -144,33 +92,6 @@ async function focusTab(url) {
   const match = matches.find(t => t.windowId !== currentWindow.id) || matches[0];
   await chrome.tabs.update(match.id, { active: true });
   await chrome.windows.update(match.windowId, { focused: true });
-}
-
-/**
- * closeDuplicateTabs(urls, keepOne)
- *
- * Closes duplicate tabs for the given list of URLs.
- * keepOne=true → keep one copy of each, close the rest.
- * keepOne=false → close all copies.
- */
-async function closeDuplicateTabs(urls, keepOne = true) {
-  const allTabs = await chrome.tabs.query({});
-  const toClose = [];
-
-  for (const url of urls) {
-    const matching = allTabs.filter(t => t.url === url);
-    if (keepOne) {
-      const keep = matching.find(t => t.active) || matching[0];
-      for (const tab of matching) {
-        if (tab.id !== keep.id) toClose.push(tab.id);
-      }
-    } else {
-      for (const tab of matching) toClose.push(tab.id);
-    }
-  }
-
-  if (toClose.length > 0) await chrome.tabs.remove(toClose);
-  await fetchOpenTabs();
 }
 
 /**
@@ -231,15 +152,26 @@ async function closeTabOutDupes() {
  */
 async function saveTabForLater(tab) {
   const { deferred = [] } = await chrome.storage.local.get('deferred');
-  deferred.push({
+  const item = {
     id:        Date.now().toString(),
     url:       tab.url,
     title:     tab.title,
     savedAt:   new Date().toISOString(),
     completed: false,
     dismissed: false,
-  });
+  };
+  deferred.push(item);
   await chrome.storage.local.set({ deferred });
+  return item;
+}
+
+/**
+ * removeSavedTab(id) — deletes a saved item outright (used when undoing
+ * "save for later", so the page is back open and not also in the list).
+ */
+async function removeSavedTab(id) {
+  const { deferred = [] } = await chrome.storage.local.get('deferred');
+  await chrome.storage.local.set({ deferred: deferred.filter(item => item.id !== id) });
 }
 
 /**
@@ -439,11 +371,22 @@ function animateCardOut(card) {
  *
  * Brief pop-up notification at the bottom of the screen.
  */
-function showToast(message) {
-  const toast = document.getElementById('toast');
+let toastTimer = null;
+function showToast(message, { undo = false } = {}) {
+  const toast  = document.getElementById('toast');
+  const action = document.getElementById('toastAction');
   document.getElementById('toastText').textContent = message;
+  action.textContent   = t('btn.undo');
+  action.style.display = undo ? '' : 'none';
+  toast.classList.toggle('has-action', undo);
   toast.classList.add('visible');
-  setTimeout(() => toast.classList.remove('visible'), 2500);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('visible'), undo ? 30000 : 2500);
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  document.getElementById('toast').classList.remove('visible');
 }
 
 /**
@@ -813,9 +756,9 @@ function renderDomainCard(group) {
   // Count duplicates (exact URL match)
   const urlCounts = {};
   for (const tab of tabs) urlCounts[tab.url] = (urlCounts[tab.url] || 0) + 1;
-  const dupeUrls   = Object.entries(urlCounts).filter(([, c]) => c > 1);
-  const hasDupes   = dupeUrls.length > 0;
-  const totalExtras = dupeUrls.reduce((s, [, c]) => s + c - 1, 0);
+  // Extra copies that "close duplicates" would actually close (pinned copies stay)
+  const totalExtras = duplicateTabIds(tabs).length;
+  const hasDupes    = totalExtras > 0;
 
   const tabBadge = `<span class="open-tabs-badge">
     ${ICONS.tabs}
@@ -859,9 +802,8 @@ function renderDomainCard(group) {
     </button>`;
 
   if (hasDupes) {
-    const dupeUrlsEncoded = dupeUrls.map(([url]) => encodeURIComponent(url)).join(',');
     actionsHtml += `
-      <button class="action-btn" data-action="dedup-keep-one" data-dupe-urls="${dupeUrlsEncoded}">
+      <button class="action-btn" data-action="dedup-keep-one" data-domain-id="${stableId}">
         ${tPlural('btn.closeDupe', 'btn.closeDupePlural', totalExtras)}
       </button>`;
   }
@@ -1044,7 +986,11 @@ async function renderStaticDashboard() {
 
   if (domainGroups.length > 0 && openTabsSection) {
     if (openTabsSectionTitle) openTabsSectionTitle.textContent = t('section.openTabs');
-    openTabsSectionCount.innerHTML = `${tPlural('label.domain', 'label.domains', domainGroups.length)} &nbsp;&middot;&nbsp; <button class="collect-btn" data-action="collect-all-tabs"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg> ${t('tabGroups.collectAll')}</button> <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} ${tPlural('btn.closeAll', 'btn.closeAllPlural', realTabs.length)}</button>`;
+    const extraCopies = duplicateTabIds(realTabs).length;
+    const dedupAllBtn = extraCopies > 0
+      ? `<button class="action-btn dedup-btn" data-action="dedup-all">${t('btn.dedupAll', { n: extraCopies })}</button> `
+      : '';
+    openTabsSectionCount.innerHTML = `${tPlural('label.domain', 'label.domains', domainGroups.length)} &nbsp;&middot;&nbsp; ${dedupAllBtn}<button class="collect-btn" data-action="collect-all-tabs"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" /></svg> ${t('tabGroups.collectAll')}</button> <button class="action-btn close-tabs" data-action="close-all-open-tabs" style="font-size:11px;padding:3px 10px;">${ICONS.close} ${tPlural('btn.closeAll', 'btn.closeAllPlural', realTabs.length)}</button>`;
     openTabsMissionsEl.innerHTML = domainGroups.map(g => renderDomainCard(g)).join('');
     openTabsSection.style.display = 'block';
   } else if (openTabsSection) {
@@ -1068,6 +1014,60 @@ async function renderStaticDashboard() {
 
 async function renderDashboard() {
   await renderStaticDashboard();
+}
+
+
+/* ----------------------------------------------------------------
+   CLOSE HELPERS — shared by the handlers below
+   ---------------------------------------------------------------- */
+
+function findDomainGroup(domainId) {
+  return domainGroups.find(g => 'domain-' + g.domain.replace(/[^a-z0-9]/g, '-') === domainId);
+}
+
+function animateChipOut(chip, { confetti = false } = {}) {
+  if (!chip) return;
+  if (confetti) {
+    const rect = chip.getBoundingClientRect();
+    shootConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+  chip.style.transition = 'opacity 0.2s, transform 0.2s';
+  chip.style.opacity    = '0';
+  chip.style.transform  = 'scale(0.8)';
+  setTimeout(() => {
+    chip.remove();
+    document.querySelectorAll('.mission-card').forEach(c => {
+      if (c.querySelectorAll('.page-chip[data-action="focus-tab"]').length === 0) animateCardOut(c);
+    });
+  }, 200);
+}
+
+// After a whole site was closed or stashed: animate its card away, unless a
+// pinned tab stayed open — then re-render so the card shows what is left.
+async function afterSiteClosed(card, group, result) {
+  await fetchOpenTabs();
+  if (result.closed > 0) playCloseSound();
+  if (result.skippedPinned > 0) { await renderDashboard(); return; }
+  if (card) animateCardOut(card);
+  const idx = domainGroups.indexOf(group);
+  if (idx !== -1) domainGroups.splice(idx, 1);
+}
+
+async function closeAndRerender(tabs, meta, message) {
+  const result = await undoController.close(tabs, meta);
+  if (result.closed === 0) return;
+  playCloseSound();
+  await renderDashboard();
+  showToast(message, { undo: true });
+}
+
+// "Close all" asks once ever; after that, undo is the safety net.
+async function confirmCloseAllOnce(count) {
+  const { closeAllConfirmedV1 } = await chrome.storage.local.get('closeAllConfirmedV1');
+  if (closeAllConfirmedV1) return true;
+  if (!confirm(t('confirm.closeAll', { n: count }))) return false;
+  await chrome.storage.local.set({ closeAllConfirmedV1: true });
+  return true;
 }
 
 
@@ -1119,42 +1119,19 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
-  // ---- Close a single tab ----
+  // ---- Close a single page (every open copy of this URL) ----
   if (action === 'close-single-tab') {
     e.stopPropagation(); // don't trigger parent chip's focus-tab
     const tabUrl = actionEl.dataset.tabUrl;
     if (!tabUrl) return;
 
-    // Close the tab in Chrome directly
-    const allTabs = await chrome.tabs.query({});
-    const match   = allTabs.find(t => t.url === tabUrl);
-    if (match) await chrome.tabs.remove(match.id);
+    const result = await undoController.close(getRealTabs().filter(tab => tab.url === tabUrl), { kind: 'single' });
     await fetchOpenTabs();
+    if (result.closed === 0) return;
 
     playCloseSound();
-
-    // Animate the chip row out
-    const chip = actionEl.closest('.page-chip');
-    if (chip) {
-      const rect = chip.getBoundingClientRect();
-      shootConfetti(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      chip.style.transition = 'opacity 0.2s, transform 0.2s';
-      chip.style.opacity    = '0';
-      chip.style.transform  = 'scale(0.8)';
-      setTimeout(() => {
-        chip.remove();
-        // If the card now has no tabs, remove it too
-        const parentCard = document.querySelector('.mission-card:has(.mission-pages:empty)');
-        if (parentCard) animateCardOut(parentCard);
-        document.querySelectorAll('.mission-card').forEach(c => {
-          if (c.querySelectorAll('.page-chip[data-action="focus-tab"]').length === 0) {
-            animateCardOut(c);
-          }
-        });
-      }, 200);
-    }
-
-    showToast(t('toast.tabClosed'));
+    animateChipOut(actionEl.closest('.page-chip'), { confetti: true });
+    showToast(t('toast.tabClosed'), { undo: true });
     return;
   }
 
@@ -1165,31 +1142,19 @@ document.addEventListener('click', async (e) => {
     const tabTitle = actionEl.dataset.tabTitle || tabUrl;
     if (!tabUrl) return;
 
-    // Save to chrome.storage.local
+    let saved;
     try {
-      await saveTabForLater({ url: tabUrl, title: tabTitle });
+      saved = await saveTabForLater({ url: tabUrl, title: tabTitle });
     } catch (err) {
       console.error('[tab-out] Failed to save tab:', err);
       showToast(t('toast.failedToSave'));
       return;
     }
 
-    // Close the tab in Chrome
-    const allTabs = await chrome.tabs.query({});
-    const match   = allTabs.find(t => t.url === tabUrl);
-    if (match) await chrome.tabs.remove(match.id);
+    await undoController.close(getRealTabs().filter(tab => tab.url === tabUrl), { kind: 'defer', deferredId: saved.id });
     await fetchOpenTabs();
-
-    // Animate chip out
-    const chip = actionEl.closest('.page-chip');
-    if (chip) {
-      chip.style.transition = 'opacity 0.2s, transform 0.2s';
-      chip.style.opacity    = '0';
-      chip.style.transform  = 'scale(0.8)';
-      setTimeout(() => chip.remove(), 200);
-    }
-
-    showToast(t('toast.savedForLater'));
+    animateChipOut(actionEl.closest('.page-chip'));
+    showToast(t('toast.savedForLater'), { undo: true });
     await renderDeferredColumn();
     return;
   }
@@ -1236,123 +1201,88 @@ document.addEventListener('click', async (e) => {
 
   // ---- Collect (OneTab) a domain group ----
   if (action === 'collect-domain-tabs') {
-    const domainId = actionEl.dataset.domainId;
-    const domainGroup = domainGroups.find(g => {
-      return 'domain-' + g.domain.replace(/[^a-z0-9]/g, '-') === domainId;
-    });
+    const domainGroup = findDomainGroup(actionEl.dataset.domainId);
     if (!domainGroup) return;
+    const tabs = domainGroup.tabs.filter(tab => !tab.pinned);
+    if (tabs.length === 0) return;
 
-    // Save as a tab group
     const tabGroup = {
       id: Date.now().toString(),
       savedAt: new Date().toISOString(),
-      tabs: domainGroup.tabs.map(tab => ({ url: tab.url, title: tab.title })),
+      tabs: tabs.map(tab => ({ url: tab.url, title: tab.title })),
     };
     const groups = await getTabGroups();
     groups.unshift(tabGroup);
     await saveTabGroups(groups);
 
-    // Close the tabs
-    const urls = domainGroup.tabs.map(tab => tab.url);
-    const useExact = domainGroup.domain === '__landing-pages__' || !!domainGroup.label;
-    if (useExact) { await closeTabsExact(urls); } else { await closeTabsByUrls(urls); }
-
-    if (card) { playCloseSound(); animateCardOut(card); }
-
-    const idx = domainGroups.indexOf(domainGroup);
-    if (idx !== -1) domainGroups.splice(idx, 1);
-
-    showToast(t('toast.collected', { n: tabGroup.tabs.length }));
+    const result = await undoController.close(tabs, { kind: 'collect', collectedId: tabGroup.id });
+    await afterSiteClosed(card, domainGroup, result);
+    showToast(t('toast.collected', { n: tabGroup.tabs.length }), { undo: result.closed > 0 });
     await renderTabGroups();
     return;
   }
 
   // ---- Close all tabs in a domain group ----
   if (action === 'close-domain-tabs') {
-    const domainId = actionEl.dataset.domainId;
-    const group    = domainGroups.find(g => {
-      return 'domain-' + g.domain.replace(/[^a-z0-9]/g, '-') === domainId;
-    });
+    const group = findDomainGroup(actionEl.dataset.domainId);
     if (!group) return;
 
-    const urls      = group.tabs.map(t => t.url);
-    // Landing pages and custom groups (whose domain key isn't a real hostname)
-    // must use exact URL matching to avoid closing unrelated tabs
-    const useExact  = group.domain === '__landing-pages__' || !!group.label;
-
-    if (useExact) {
-      await closeTabsExact(urls);
-    } else {
-      await closeTabsByUrls(urls);
-    }
-
-    if (card) {
-      playCloseSound();
-      animateCardOut(card);
-    }
-
-    // Remove from in-memory groups
-    const idx = domainGroups.indexOf(group);
-    if (idx !== -1) domainGroups.splice(idx, 1);
-
+    const result = await undoController.close(group.tabs, { kind: 'domain' });
+    await afterSiteClosed(card, group, result);
     const groupLabel = group.domain === '__landing-pages__' ? t('label.homepages') : (group.label || friendlyDomain(group.domain));
-    showToast(tPlural('toast.closedFrom', 'toast.closedFromPlural', urls.length, { label: groupLabel }));
+    showToast(tPlural('toast.closedFrom', 'toast.closedFromPlural', result.closed, { label: groupLabel }), { undo: result.closed > 0 });
     return;
   }
 
-  // ---- Close duplicates, keep one copy ----
+  // ---- Close duplicates in one site, keep one copy ----
   if (action === 'dedup-keep-one') {
-    const urlsEncoded = actionEl.dataset.dupeUrls || '';
-    const urls = urlsEncoded.split(',').map(u => decodeURIComponent(u)).filter(Boolean);
-    if (urls.length === 0) return;
-
-    await closeDuplicateTabs(urls, true);
-    playCloseSound();
-
-    // Hide the dedup button
-    actionEl.style.transition = 'opacity 0.2s';
-    actionEl.style.opacity    = '0';
-    setTimeout(() => actionEl.remove(), 200);
-
-    // Remove dupe badges from the card
-    if (card) {
-      card.querySelectorAll('.chip-dupe-badge').forEach(b => {
-        b.style.transition = 'opacity 0.2s';
-        b.style.opacity    = '0';
-        setTimeout(() => b.remove(), 200);
-      });
-      card.querySelectorAll('.open-tabs-badge').forEach(badge => {
-        if (badge.textContent.includes('duplicate')) {
-          badge.style.transition = 'opacity 0.2s';
-          badge.style.opacity    = '0';
-          setTimeout(() => badge.remove(), 200);
-        }
-      });
-      card.classList.remove('has-amber-bar');
-      card.classList.add('has-neutral-bar');
-    }
-
-    showToast(t('toast.closedDupes'));
+    const group = findDomainGroup(actionEl.dataset.domainId);
+    if (!group) return;
+    const extra = new Set(duplicateTabIds(group.tabs));
+    await closeAndRerender(group.tabs.filter(tab => extra.has(tab.id)), { kind: 'dedup' }, t('toast.closedDupes'));
     return;
   }
 
-  // ---- Close ALL open tabs ----
+  // ---- Close duplicates across every site and window ----
+  if (action === 'dedup-all') {
+    const realTabs = getRealTabs();
+    const extra = new Set(duplicateTabIds(realTabs));
+    await closeAndRerender(realTabs.filter(tab => extra.has(tab.id)), { kind: 'dedup' }, t('toast.closedDupes'));
+    return;
+  }
+
+  // ---- Close ALL open tabs (every window; Tab Out itself stays) ----
   if (action === 'close-all-open-tabs') {
-    const allUrls = openTabs
-      .filter(t => t.url && !t.url.startsWith('chrome') && !t.url.startsWith('about:'))
-      .map(t => t.url);
-    await closeTabsByUrls(allUrls);
+    const realTabs = getRealTabs();
+    if (!(await confirmCloseAllOnce(realTabs.length))) return;
+
+    const result = await undoController.close(realTabs, { kind: 'all' });
+    await fetchOpenTabs();
     playCloseSound();
+    if (result.skippedPinned > 0) {
+      await renderDashboard();
+    } else {
+      document.querySelectorAll('#openTabsMissions .mission-card').forEach(c => {
+        shootConfetti(
+          c.getBoundingClientRect().left + c.offsetWidth / 2,
+          c.getBoundingClientRect().top  + c.offsetHeight / 2
+        );
+        animateCardOut(c);
+      });
+    }
+    showToast(t('toast.allClosed'), { undo: result.closed > 0 });
+    return;
+  }
 
-    document.querySelectorAll('#openTabsMissions .mission-card').forEach(c => {
-      shootConfetti(
-        c.getBoundingClientRect().left + c.offsetWidth / 2,
-        c.getBoundingClientRect().top  + c.offsetHeight / 2
-      );
-      animateCardOut(c);
-    });
-
-    showToast(t('toast.allClosed'));
+  // ---- Undo the last close / stash / save-for-later ----
+  if (action === 'undo-last') {
+    const result = await undoController.undo();
+    hideToast();
+    if (!result) { showToast(t('toast.undoExpired')); return; }
+    if (result.meta.collectedId) await removeTabGroupRecord(result.meta.collectedId);
+    if (result.meta.deferredId)  await removeSavedTab(result.meta.deferredId);
+    await renderDashboard();
+    showToast(t('toast.undone', { n: result.restored }));
     return;
   }
 });
@@ -1415,32 +1345,42 @@ async function saveTabGroups(groups) {
 }
 
 async function collectAllTabs() {
-  const realTabs = getRealTabs();
-  if (realTabs.length === 0) return;
+  const tabs = getRealTabs().filter(tab => !tab.pinned);
+  if (tabs.length === 0) return;
 
   const group = {
     id: Date.now().toString(),
     savedAt: new Date().toISOString(),
-    tabs: realTabs.map(tab => ({ url: tab.url, title: tab.title })),
+    tabs: tabs.map(tab => ({ url: tab.url, title: tab.title })),
   };
 
   const groups = await getTabGroups();
   groups.unshift(group);
   await saveTabGroups(groups);
 
-  const allUrls = realTabs.map(tab => tab.url);
-  await closeTabsByUrls(allUrls);
-
+  const result = await undoController.close(tabs, { kind: 'collect', collectedId: group.id });
+  await fetchOpenTabs();
   playCloseSound();
-  document.querySelectorAll('#openTabsMissions .mission-card').forEach(c => {
-    shootConfetti(
-      c.getBoundingClientRect().left + c.offsetWidth / 2,
-      c.getBoundingClientRect().top + c.offsetHeight / 2
-    );
-    animateCardOut(c);
-  });
+  if (result.skippedPinned > 0) {
+    await renderDashboard();
+  } else {
+    document.querySelectorAll('#openTabsMissions .mission-card').forEach(c => {
+      shootConfetti(
+        c.getBoundingClientRect().left + c.offsetWidth / 2,
+        c.getBoundingClientRect().top + c.offsetHeight / 2
+      );
+      animateCardOut(c);
+    });
+  }
 
-  showToast(t('toast.collected', { n: group.tabs.length }));
+  showToast(t('toast.collected', { n: group.tabs.length }), { undo: result.closed > 0 });
+  await renderTabGroups();
+}
+
+// Drops a stash record without a toast (used when its stash is undone).
+async function removeTabGroupRecord(groupId) {
+  const groups = await getTabGroups();
+  await saveTabGroups(groups.filter(g => g.id !== groupId));
   await renderTabGroups();
 }
 

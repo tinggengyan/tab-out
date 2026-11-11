@@ -158,6 +158,7 @@
     <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
   </svg>
   <span id="toastText"></span>
+  <button class="toast-action" id="toastAction" data-action="undo-last" style="display:none"></button>
 </div>
 
 <!-- Optional grouping overrides (LOCAL_LANDING_PAGE_PATTERNS, LOCAL_CUSTOM_GROUPS) -->
@@ -169,6 +170,7 @@
 <!-- Pure helpers shared with the Node tests -->
 <script src="lib/sanitize.js"></script>
 <script src="lib/grouping.js"></script>
+<script src="lib/close-undo.js"></script>
 
 <!-- Main dashboard logic — loads last so the DOM is ready -->
 <script src="app.js"></script>
