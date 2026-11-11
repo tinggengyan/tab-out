@@ -1,0 +1,29 @@
+extension/app.js
+  s_e5754f44d32568::t_9ad7852d48b4d5 21,989,1911-2266
+extension/i18n.js
+  s_e5754f44d32568::t_2110b0143ae1bd 129-159,279-309
+extension/index.html
+  s_e5754f44d32568::t_a19696a697eb13 88-91,158-182,209
+extension/manifest.json
+  s_e5754f44d32568::t_c97741c3e9c289 13-16
+extension/style.css
+  s_e5754f44d32568::t_8fcdc066fbfb64 1753-2057
+tests/integration/static-contract.test.js
+  s_e5754f44d32568::t_cb60306e7b9074 16-18,38,40,107-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "f330b10681e52392a2057449cee071dcc7e664fe",
+  "prompts": {},
+  "sessions": {
+    "s_e5754f44d32568": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_e5754f44d32568",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
