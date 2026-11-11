@@ -1556,7 +1556,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 .tab-groups-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 6px;
 }
 
 .tab-groups-empty {
@@ -1576,11 +1576,13 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   overflow: hidden;
 }
 
+/* One compact row per record; its buttons appear on hover or keyboard focus. */
 .tab-group-header {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 14px;
+  padding: 8px 12px;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -1617,10 +1619,31 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   color: var(--muted);
 }
 
+.tab-group-date,
+.tab-group-count {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Hidden with opacity (not visibility) so the buttons stay reachable by Tab. */
 .tab-group-actions {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   gap: 4px;
-  flex-shrink: 0;
+  padding-left: 8px;
+  background: var(--card-bg);
+  box-shadow: -14px 0 12px var(--card-bg);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tab-group-card:hover .tab-group-actions,
+.tab-group-card:focus-within .tab-group-actions {
+  opacity: 1;
 }
 
 .tab-group-action {

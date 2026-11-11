@@ -37,7 +37,8 @@ npm run package               # dist/tab-out-3.0.0-store.zip
 - each core action takes one click and can be undone;
 - titles are escaped;
 - the v2.3 → v3 migration works;
-- pages opened or closed in another window appear without a reload (scenario 14, a regression guard rather than a §5 check).
+- pages opened or closed in another window appear without a reload (scenario 14, a regression guard rather than a §5 check);
+- with 12 stash records, every saved-for-later item is still on the first screen and stash rows stay compact (scenario 15).
 
 CI (`.github/workflows/verify.yml`, every push and PR) runs `npm test`, `npm run check`, a grep for remote scripts and inline handlers, and `npm run package`. It does not run the browser suite, so run `npm run e2e:home` locally before merging UI changes.
 

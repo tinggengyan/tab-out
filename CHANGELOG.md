@@ -8,7 +8,7 @@ Back to the soul: open tabs grouped by site, closed, deduplicated or stashed in 
 - Every site card has one row of buttons: close all, stash, and close duplicates (only when there are any). The header adds close all duplicates, stash all and close all, across every window. Row buttons appear on hover or keyboard focus.
 - The page follows tabs in every window while it is open: pages opened, retitled or closed elsewhere show up without a reload. A Tab Out tab in the background catches up when you switch to it.
 - Closing, deduplicating, stashing and saving for later can be undone for 30 seconds; pages return to their original window and position. Pinned tabs are never closed or stashed. "Close all" asks once, the first time.
-- Stashed groups sit above Saved for later in the right column. "Restore all" reopens the pages that are not already open and removes the group; a single page can be restored on its own.
+- The right column shows Saved for later on top and stashed groups below it, one compact row each; a group's Restore all and Delete appear on hover or keyboard focus, so a long stash never pushes Saved for later off screen. "Restore all" reopens the pages that are not already open and removes the group; a single page can be restored on its own.
 - On first start, 2.x projects are copied into stashed groups once. Old data is left untouched. Import also accepts the original fork's file and the 2.x backup.
 - No network requests: icons use Chrome's local favicon cache (no more Google favicon service) and DM Sans / Newsreader are bundled. Tab titles and addresses are escaped before display.
 - Permissions reduced to `tabs`, `storage` and `favicon`. Interface languages: English and Simplified Chinese.

@@ -79,7 +79,7 @@ test('stash records use the collected store and migrate before the first render'
     'migrateLegacy must run before the first renderDashboard');
   const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
   assert.ok(scripts.indexOf('lib/collected-store.js') !== -1 && scripts.indexOf('lib/collected-store.js') < scripts.indexOf('app.js'));
-  assert.ok(html.indexOf('id="tabGroupsColumn"') < html.indexOf('id="deferredColumn"'), 'stash column sits above save-for-later');
+  assert.ok(html.indexOf('id="deferredColumn"') < html.indexOf('id="tabGroupsColumn"'), 'save-for-later sits above the stash, so a long stash cannot push it off screen');
 });
 
 test('import and export go through config-io and never touch the legacy tabGroups key', () => {

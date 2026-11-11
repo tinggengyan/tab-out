@@ -93,20 +93,7 @@
 
     <!-- RIGHT COLUMN: stash ("已收纳") above save-for-later; hidden when both are empty -->
     <aside class="side-column" id="sideColumn" hidden>
-      <!-- RIGHT COLUMN: Stash ("已收纳") — above save-for-later -->
-      <div class="tab-groups-column" id="tabGroupsColumn" style="display:none">
-        <div class="section-header">
-          <h2 id="tabGroupsTitle"></h2>
-          <div class="section-line"></div>
-          <div class="section-count" id="tabGroupsCount"></div>
-        </div>
-        <div class="tab-groups-list" id="tabGroupsList"></div>
-        <div class="tab-groups-empty" id="tabGroupsEmpty" style="display:none">
-          <span id="tabGroupsEmptyText"></span>
-        </div>
-      </div>
-
-      <!-- RIGHT COLUMN: Saved for Later checklist -->
+      <!-- RIGHT COLUMN: Saved for Later checklist — on top, so a long stash cannot push it off screen -->
       <div class="deferred-column" id="deferredColumn" style="display:none">
         <div class="section-header">
           <h2 id="deferredTitle"></h2>
@@ -133,6 +120,19 @@
             <input type="text" class="archive-search" id="archiveSearch" placeholder="">
             <div class="archive-list" id="archiveList"></div>
           </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: Stash ("已收纳") — below save-for-later, one compact row per record -->
+      <div class="tab-groups-column" id="tabGroupsColumn" style="display:none">
+        <div class="section-header">
+          <h2 id="tabGroupsTitle"></h2>
+          <div class="section-line"></div>
+          <div class="section-count" id="tabGroupsCount"></div>
+        </div>
+        <div class="tab-groups-list" id="tabGroupsList"></div>
+        <div class="tab-groups-empty" id="tabGroupsEmpty" style="display:none">
+          <span id="tabGroupsEmptyText"></span>
         </div>
       </div>
     </aside>

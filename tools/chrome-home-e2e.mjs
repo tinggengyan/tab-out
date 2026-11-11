@@ -319,6 +319,37 @@ try {
   await waitFor(`!document.querySelector(${JSON.stringify(card('live'))})`, 'closing that window removes its card');
   pass('14 tabs changed in another window appear without a reload');
 
+  // 15. a long stash cannot push "saved for later" off the first screen: saved for later sits
+  //     on top, every stash record is one compact row, and its buttons appear on hover
+  const bulk = Array.from({ length: 12 }, (_, index) => ({ id: `bulk${index}`, name: `Project ${index + 1}`,
+    savedAt: new Date(Date.now() - index * 86400000).toISOString(),
+    tabs: Array.from({ length: 5 }, (_, page) => ({ url: url('bulk', `${index}-${page}`), title: `Page ${page + 1}` })) }));
+  await evaluate(`chrome.storage.local.get('collectedGroupsV3').then(({ collectedGroupsV3 }) =>
+    chrome.storage.local.set({ collectedGroupsV3: [...${JSON.stringify(bulk)}, ...collectedGroupsV3] }))`);
+  await reloadDashboard();
+  const bulkRow = '#tabGroupsList .tab-group-card[data-group-id="bulk0"]';
+  const side = await evaluate(`(() => {
+    const saved = [...document.querySelectorAll('#deferredList .deferred-item')];
+    const rows = [...document.querySelectorAll('#tabGroupsList .tab-group-card')];
+    const row = document.querySelector(${JSON.stringify(bulkRow)});
+    return {
+      savedAbove: document.getElementById('deferredTitle').getBoundingClientRect().top < document.getElementById('tabGroupsTitle').getBoundingClientRect().top,
+      savedCount: saved.length,
+      savedOnScreen: saved.every(item => item.getBoundingClientRect().bottom <= innerHeight),
+      tallestRow: Math.max(...rows.map(item => item.getBoundingClientRect().height)),
+      buttonOpacity: getComputedStyle(row.querySelector('.tab-group-actions')).opacity,
+      meta: row.querySelector('.tab-group-count').textContent,
+    };
+  })()`);
+  assert.equal(side.savedAbove, true, 'saved for later sits above the stash');
+  assert.ok(side.savedCount > 0 && side.savedOnScreen, 'every saved-for-later item is on the first screen');
+  assert.ok(side.tallestRow <= 56, `stash records are compact rows (tallest ${side.tallestRow}px)`);
+  assert.equal(side.buttonOpacity, '0', 'record buttons stay hidden until hover');
+  assert.doesNotMatch(side.meta, /\d:\d\d/, `a named record shows the date without the time: ${side.meta}`);
+  await hoverClick(bulkRow, `${bulkRow} [data-action="restore-group"]`);
+  await waitForSite('bulk', 5);
+  pass('15 saved for later stays on the first screen above a long stash');
+
   process.stdout.write(`PASS home guard [${locale}]\n`);
 } finally {
   page.close();

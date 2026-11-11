@@ -1525,11 +1525,13 @@ async function renderTabGroupsInner() {
 
   listEl.innerHTML = groups.map(group => {
     const groupId = escapeHtml(group.id);
-    const date = new Date(group.savedAt).toLocaleDateString(locale, {
-      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-    const heading = escapeHtml(group.name || date);
-    const meta = t('tabGroups.tabCount', { n: group.tabs.length }) + (group.name ? ` · ${escapeHtml(date)}` : '');
+    // A named record shows only the day so its row stays on one line;
+    // an unnamed one is told apart by its time.
+    const savedAt = new Date(group.savedAt);
+    const day     = savedAt.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    const dayTime = savedAt.toLocaleDateString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const heading = escapeHtml(group.name || dayTime);
+    const meta = t('tabGroups.tabCount', { n: group.tabs.length }) + (group.name ? ` · ${escapeHtml(day)}` : '');
     const tabsHtml = group.tabs.map((tab, idx) => {
       const icon = escapeHtml(faviconUrl(tab.url, chrome.runtime.id));
       const safeTitle = escapeHtml(tab.title || tab.url || '');
