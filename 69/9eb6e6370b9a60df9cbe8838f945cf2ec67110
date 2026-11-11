@@ -1,0 +1,29 @@
+extension/app.js
+  s_efb11a7b0e031d::t_046c6851c4d856 654,712,760,769-771,774,797-805,808-811,819,829-842,855,904-908,1008-1012,1015,1039-1047,1423,1489-1493,1801-1814
+extension/fonts/OFL.txt
+  s_efb11a7b0e031d::t_f5b9ce5dce550b 1-191
+extension/i18n.js
+  s_efb11a7b0e031d::t_8b59133dd4834c 37-38,107,112,116-121,153-154,160-161,223,232-237
+extension/index.html
+  s_efb11a7b0e031d::t_8257b2acac31e9 94-106,109-115,117-118,120-123,125-135,138
+extension/style.css
+  s_efb11a7b0e031d::t_a2c95acad8813b 7-13,224-226,229-230,303,305-306,314-317,346-347,364-369,441-451,465,532-534,536,539-544,546,549-552,584-586,590-613,615,991-992,995-996,998-1000,1003-1004,1010,1013,1554
+tests/unit/i18n.test.js
+  s_efb11a7b0e031d::t_ad297a7c2a97b6 1-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "699eb6e6370b9a60df9cbe8838f945cf2ec67110",
+  "prompts": {},
+  "sessions": {
+    "s_efb11a7b0e031d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_efb11a7b0e031d",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
