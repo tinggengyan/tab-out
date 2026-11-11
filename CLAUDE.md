@@ -38,6 +38,8 @@ npm run package               # dist/tab-out-3.0.0-store.zip
 - titles are escaped;
 - the v2.3 → v3 migration works.
 
+CI (`.github/workflows/verify.yml`, every push and PR) runs `npm test`, `npm run check`, a grep for remote scripts and inline handlers, and `npm run package`. It does not run the browser suite, so run `npm run e2e:home` locally before merging UI changes.
+
 Manual testing: load `extension/` unpacked. Refresh the new tab after page changes; reload the extension after `manifest.json` or `background.js` changes.
 
 ## Architecture
@@ -53,7 +55,7 @@ Manual testing: load `extension/` unpacked. Refresh the new tab after page chang
   | `collected-store.js` | Stash records under `collectedGroupsV3`, restored OneTab-style (restoring removes the record). `migrateLegacy` copies the owner's 2.x `workspacesV2` projects in once, idempotent by `sourceId`. |
   | `config-io.js` | Export format v3. Import also accepts the original v1 file and the 2.x backup. |
 
-- `extension/app.js` renders the page and handles every `data-action` click through document-level event delegation:
+- `extension/app.js` renders the page and handles every `data-action` click through document-level event delegation. Close and stash actions run one at a time (`exclusive()`), and an action that closed nothing leaves the current undo toast alone. The actions are:
   - site cards: `close-domain-tabs`, `collect-domain-tabs`, `dedup-keep-one`;
   - header: `dedup-all`, `collect-all-tabs`, `close-all-open-tabs`;
   - right column: stash and save-for-later actions;
