@@ -1,0 +1,27 @@
+CHANGELOG.md
+  s_6303f9153828ed::t_bcfba5dd8bc280 3-14
+CLAUDE.md
+  s_6303f9153828ed::t_ac8d82ae0b5baa 7,9-17,22-28,31,33-39,41,45-91
+README.md
+  s_6303f9153828ed::t_cc755fe3ab1d9d 5,7,25-35,39,41-44,46,48,50,52,54,60,64-67,70,72,74-78,80,82,90
+docs/PRIVACY.md
+  s_6303f9153828ed::t_6010f2002c631b 3,5,7,9,11,13,15
+docs/ai-tasks/2026-11-11-soul-rebuild/implementation.md
+  s_6303f9153828ed::t_02ec885eb70b29 1-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "95301636616969391e359b0540ceb1087281a75b",
+  "prompts": {},
+  "sessions": {
+    "s_6303f9153828ed": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_6303f9153828ed",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
