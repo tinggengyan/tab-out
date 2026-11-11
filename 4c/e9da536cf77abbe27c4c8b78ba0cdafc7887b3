@@ -1,0 +1,37 @@
+CHANGELOG.md
+  s_904473ca9440fe::t_978a216e47c2e4 9
+CLAUDE.md
+  s_904473ca9440fe::t_de0522d7b98976 39-40,57,60
+README.md
+  s_904473ca9440fe::t_e2b330ba344403 26
+docs/ai-tasks/2026-11-11-soul-rebuild/implementation.md
+  s_904473ca9440fe::t_691bc96bf85f42 76-90
+extension/app.js
+  s_904473ca9440fe::t_1799b041a8cd6f 21,990-1017,1045-1046,1050-1057,1060,1064-1065,1100,1891-1906
+extension/index.html
+  s_904473ca9440fe::t_ba6f75902e5853 179
+extension/lib/live-refresh.js
+  s_904473ca9440fe::t_f5a9d3d9c96f80 1-59
+tests/integration/static-contract.test.js
+  s_904473ca9440fe::t_f318060a8be5de 94-104
+tests/unit/live-refresh.test.js
+  s_904473ca9440fe::t_f275c495499db5 1-107
+tools/chrome-home-e2e.mjs
+  s_904473ca9440fe::t_3343706b341cef 296,298-299,304-321
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4ce9da536cf77abbe27c4c8b78ba0cdafc7887b3",
+  "prompts": {},
+  "sessions": {
+    "s_904473ca9440fe": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_904473ca9440fe",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
