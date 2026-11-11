@@ -1,0 +1,19 @@
+tools/chrome-home-e2e.mjs
+  s_dafb0bea71ead3::t_156094659be0ae 113-115,354-443
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "99231d5e04a92810df1597c6fcbb9e4c12a4b78d",
+  "prompts": {},
+  "sessions": {
+    "s_dafb0bea71ead3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a19d00-48e8-7842-85ed-88530000b5c6",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
