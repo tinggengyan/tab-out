@@ -1,0 +1,23 @@
+tools/chrome-home-e2e.mjs
+  s_a8062bacb09d40::t_27abbdad987538 1-241
+tools/chrome-test-client.mjs
+  s_a8062bacb09d40::t_bb2985a1286195 45,55
+tools/run-chrome-e2e.mjs
+  s_a8062bacb09d40::t_95b5048c324163 23-29,38,42,45,62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "a3d777ed9b0d1b5d66a2be4cc18228a4bced1984",
+  "prompts": {},
+  "sessions": {
+    "s_a8062bacb09d40": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_a8062bacb09d40",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
