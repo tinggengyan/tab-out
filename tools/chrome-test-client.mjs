@@ -42,18 +42,8 @@ export async function connectPage(origin, url) {
     }
     throw new Error(`Timed out: ${description}`);
   };
-  const click = async (selector, redrawRetry = 1) => {
+  const click = async selector => {
     await send('Page.bringToFront');
-    // Management actions intentionally live in a disclosure. Open it with the
-    // same mouse path before targeting an action; never click hidden controls.
-    const menu = await evaluate(`(() => {
-      const element = document.querySelector(${JSON.stringify(selector)});
-      const disclosure = element?.closest('details.project-card-menu');
-      if (!disclosure || disclosure.open) return null;
-      const id = disclosure.closest('.project-card[data-project-id]')?.dataset.projectId;
-      return id ? '.project-card[data-project-id="' + CSS.escape(id) + '"] details.project-card-menu > summary' : null;
-    })()`);
-    if (menu && menu !== selector) await click(menu);
     await waitFor(`(() => { const element = document.querySelector(${JSON.stringify(selector)}); return element && !element.disabled && element.getBoundingClientRect().height > 0; })()`, `clickable ${selector}`);
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({block:'center'})`);
     await evaluate(`Promise.all(document.getAnimations().filter(animation => Number.isFinite(animation.effect?.getComputedTiming().iterations)).map(animation => animation.finished.catch(() => {})))`);
@@ -62,11 +52,8 @@ export async function connectPage(origin, url) {
       const rect = element.getBoundingClientRect();
       const x = rect.x + rect.width / 2, y = rect.y + rect.height / 2;
       const hit = document.elementFromPoint(x,y);
-      return { x, y, hit: hit === element || element.contains(hit), closedDisclosure: Boolean(element.closest('details:not([open])') && !element.matches('summary')), target: element.outerHTML.slice(0,250), actual: hit?.outerHTML.slice(0,250) };
+      return { x, y, hit: hit === element || element.contains(hit), target: element.outerHTML.slice(0,250), actual: hit?.outerHTML.slice(0,250) };
     })()`);
-    // A concurrent card redraw can replace the exact disclosure just opened.
-    // Re-query and use its real mouse path once; retain strict hit testing.
-    if (!point.hit && point.closedDisclosure && redrawRetry) return click(selector, redrawRetry - 1);
     if (!point.hit) await screenshot('blocked-click');
     assert.equal(point.hit, true, `mouse input is blocked for ${selector}: ${JSON.stringify(point)}`);
     const { x, y } = point;
