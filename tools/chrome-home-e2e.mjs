@@ -110,8 +110,9 @@ try {
     return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
       && rect.top < innerHeight && rect.bottom > 0 && rect.left < innerWidth && rect.right > 0;
   }).length`);
-  assert.ok(controls <= 30, `${controls} visible controls`);
-  pass(`2 ${controls} visible controls <= 30`);
+  // 30 until 2026-11-12, when the owner made room for the search button.
+  assert.ok(controls <= 31, `${controls} visible controls`);
+  pass(`2 ${controls} visible controls <= 31`);
 
   // 3. card buttons stay on one row (1440 and 1366), no menus inside cards
   const oneRow = `[...document.querySelectorAll('#openTabsMissions .actions')].every(row => {
@@ -349,6 +350,96 @@ try {
   await hoverClick(bulkRow, `${bulkRow} [data-action="restore-group"]`);
   await waitForSite('bulk', 5);
   pass('15 saved for later stays on the first screen above a long stash');
+
+  // 16. search: the header button and "/" open one overlay over open tabs, saved for later and the
+  //     stash. Enter switches to a tab, opens a stashed page (taking it out of its record) or shows
+  //     a record; "N more" expands a group; bookmarks and history wait until the user turns them on.
+  const quokkaTab = url('quokka', 'open');
+  const quokkaPage = url('quokkapage', 'one');
+  await evaluate(`chrome.storage.local.get(['deferred', 'collectedGroupsV3']).then(state => chrome.storage.local.set({
+    deferred: [...state.deferred, { id: 'dq', url: ${JSON.stringify(url('blog', 'quokka'))}, title: 'Quokka reading', savedAt: new Date().toISOString(), completed: false, dismissed: false }],
+    collectedGroupsV3: [{ id: 'zoo', name: 'Quokka trip', savedAt: new Date().toISOString(), tabs: [
+      { url: ${JSON.stringify(quokkaPage)}, title: 'Quokka facts' },
+      { url: ${JSON.stringify(url('other', 'two'))}, title: 'Unrelated page' },
+      { url: ${JSON.stringify(url('evil', 'stashed'))}, title: ${JSON.stringify(XSS_TITLE + ' quokka')} },
+    ] }, ...state.collectedGroupsV3],
+  }))`);
+  const quokkaTabId = await evaluate(`chrome.tabs.create({ url: ${JSON.stringify(quokkaTab)}, active: false }).then(tab => tab.id)`);
+  await waitForSite('quokka', 1);
+  await reloadDashboard();
+  requests.length = 0;
+  const key = async (keyName, code, keyCode, text) => {
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: keyName, code, windowsVirtualKeyCode: keyCode, ...(text ? { text } : {}) });
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: keyName, code, windowsVirtualKeyCode: keyCode });
+  };
+  const overlayOpen = `!document.getElementById('searchOverlay').hidden && document.activeElement?.id === 'searchInput'`;
+  const groupsShown = () => evaluate(`[...document.querySelectorAll('#searchResults [data-search-group]')].map(group => group.dataset.searchGroup)`);
+  const typeQuery = async text => {
+    await evaluate(`(() => { const input = document.getElementById('searchInput'); input.value = ''; input.dispatchEvent(new Event('input')); })()`);
+    await send('Input.insertText', { text });
+  };
+  const openByButton = async () => {
+    await click('#searchTrigger');
+    await waitFor(overlayOpen, 'the search button opens the overlay');
+    await waitFor(`!document.getElementById('searchGrant').hidden`, 'sources loaded');
+  };
+
+  await openByButton();
+  assert.ok((await evaluate(`document.getElementById('searchMessage').textContent`)).length > 0, 'an empty search shows a hint');
+  await key('Escape', 'Escape', 27);
+  await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
+  assert.equal(await evaluate(`document.activeElement?.id`), 'searchTrigger', 'focus returns to the search button');
+  await evaluate(`document.activeElement.blur()`);
+  await key('/', 'Slash', 191, '/');
+  await waitFor(overlayOpen, '"/" opens the overlay');
+  assert.equal(await evaluate(`document.getElementById('searchInput').value`), '', '"/" is not typed into the box');
+  await waitFor(`!document.getElementById('searchGrant').hidden`, 'sources loaded');
+
+  await typeQuery('quokka');
+  await waitFor(`document.querySelectorAll('#searchResults [data-search-group]').length === 3`, 'three groups');
+  assert.deepEqual(await groupsShown(), ['tabs', 'saved', 'stash'], 'groups in order; bookmarks and history wait for permission');
+  assert.deepEqual(await evaluate(`[...document.querySelectorAll('[data-search-group="stash"] [data-search-kind]')].map(row => row.dataset.searchKind)`),
+    ['record', 'stashPage', 'stashPage'], 'the record by its name, then its matching pages');
+  assert.equal(await evaluate(`document.getElementById('pwn') === null`), true, 'title markup in a result was parsed into an element');
+  assert.equal(await evaluate(`document.getElementById('searchResults').textContent.includes(${JSON.stringify(XSS_TITLE)})`), true);
+  assert.equal(await evaluate(`document.getElementById('searchGrant').hidden`), false, 'the grant card offers bookmarks and history');
+  await screenshot('16-search');
+  await key('Enter', 'Enter', 13);
+  await waitFor(`chrome.tabs.get(${quokkaTabId}).then(tab => tab.active)`, 'Enter on an open tab switches to it');
+  assert.equal(await evaluate(`document.getElementById('searchOverlay').hidden`), true);
+
+  await openByButton();
+  await typeQuery('quokka facts');
+  await waitFor(`document.querySelector('#searchResults [data-search-kind]')?.dataset.searchKind === 'stashPage'`, 'one stashed page');
+  await key('Enter', 'Enter', 13);
+  await waitForSite('quokkapage', 1);
+  await waitFor(`chrome.storage.local.get('collectedGroupsV3').then(({ collectedGroupsV3 }) =>
+    !collectedGroupsV3.find(record => record.id === 'zoo').tabs.some(page => page.url === ${JSON.stringify(quokkaPage)}))`, 'the opened page leaves its record');
+
+  await openByButton();
+  await typeQuery('quokka trip');
+  await waitFor(`document.querySelector('#searchResults [data-search-kind]')?.dataset.searchKind === 'record'`, 'the record');
+  await key('Enter', 'Enter', 13);
+  await waitFor(`document.querySelector('.tab-group-card[data-group-id="zoo"]')?.classList.contains('expanded')`, 'Enter on a record shows it in the stash');
+  assert.equal(await evaluate(`document.getElementById('searchOverlay').hidden`), true);
+
+  await openByButton();
+  await typeQuery('localhost');
+  await waitFor(`document.querySelector('[data-search-group="tabs"] .search-more') !== null`, 'a long group folds into "N more"');
+  for (let step = 0; step < 3; step++) await key('ArrowDown', 'ArrowDown', 40);
+  assert.equal(await evaluate(`document.querySelector('.search-row.is-selected')?.dataset.searchKind`), 'more', 'arrow keys walk down to "N more"');
+  await key('Enter', 'Enter', 13);
+  await waitFor(`document.querySelectorAll('[data-search-group="tabs"] [data-search-kind="tab"]').length > 3`, 'Enter on "N more" shows the whole group');
+  assert.equal(await evaluate(`document.querySelector('.search-row.is-selected')?.dataset.searchKind`), 'tab', 'the next result takes its place');
+
+  await typeQuery('zzzz-nothing');
+  await waitFor(`document.querySelector('#searchMessage .search-none') !== null`, 'nothing found says what was searched');
+  assert.equal(await evaluate(`document.querySelectorAll('#searchResults [data-search-kind]').length`), 0);
+  await key('Escape', 'Escape', 27);
+  await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
+  const outside = requests.filter(request => !/^(chrome-extension|data):/.test(request));
+  assert.deepEqual(outside, [], 'search loaded nothing from the network');
+  pass('16 search finds open tabs, saved for later and the stash; Enter acts on the result');
 
   process.stdout.write(`PASS home guard [${locale}]\n`);
 } finally {
