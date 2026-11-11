@@ -1,0 +1,21 @@
+CLAUDE.md
+  s_5580f8830228fd::t_56d32dd47e3765 41-42,58
+docs/ai-tasks/2026-11-11-soul-rebuild/implementation.md
+  s_5580f8830228fd::t_6f8c5d32e840a3 31-32,34,36,38-41,44-56,76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "66d157dd8fa00149b678a466909c3c5d727343e5",
+  "prompts": {},
+  "sessions": {
+    "s_5580f8830228fd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_5580f8830228fd",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
