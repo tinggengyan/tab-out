@@ -1,0 +1,29 @@
+docs/ai-tasks/2026-11-12-search/implementation.md
+  s_f54c8cfb62f8bd::t_4e8c3db118f5d2 77-90
+extension/app.js
+  s_f54c8cfb62f8bd::t_61682d904989d4 2113,2268-2269,2274-2275,2277-2278
+extension/i18n.js
+  s_f54c8cfb62f8bd::t_702ab3c72a3fef 152,303
+extension/index.html
+  s_f54c8cfb62f8bd::t_7e94f788b195e7 175
+extension/style.css
+  s_f54c8cfb62f8bd::t_4c4c573d1b6c17 2019-2020
+tools/chrome-home-e2e.mjs
+  s_f54c8cfb62f8bd::t_8bec4215c5026f 503-516
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e4a7aa756022d21d85573c4f245d4fc66ade4570",
+  "prompts": {},
+  "sessions": {
+    "s_f54c8cfb62f8bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_f54c8cfb62f8bd",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
