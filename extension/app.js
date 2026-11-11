@@ -18,7 +18,7 @@
 const {
   escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl, duplicateTabIds, createUndoController,
   createCollectedStore, migrateLegacy, collectableTabs, restoreTargets, buildExport, parseImport,
-  createRefreshScheduler,
+  createRefreshScheduler, searchAll, highlight, flattenBookmarks, dayBucket,
 } = TabOutLib;
 
 // Every close goes through this controller so it can be undone for 30 seconds.
@@ -986,6 +986,7 @@ async function renderStaticDashboard() {
   if (archiveSearch) archiveSearch.placeholder = t('search.archivePlaceholder');
   const closeExtrasBtn = document.getElementById('closeExtrasBtn');
   if (closeExtrasBtn) closeExtrasBtn.textContent = t('btn.closeExtras');
+  localizeSearch();
 
   await renderOpenTabs();
 
@@ -1905,6 +1906,362 @@ chrome.tabs.onUpdated.addListener((_tabId, change) => {
   if ('url' in change || 'title' in change || 'pinned' in change) liveRefresh.request();
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) liveRefresh.flush(); });
+
+
+/* ----------------------------------------------------------------
+   SEARCH — one overlay over open tabs, saved for later and the stash,
+   plus bookmarks and history once the user turns them on (optional
+   permissions, read only). Matching and grouping: lib/search.js.
+   ---------------------------------------------------------------- */
+
+const SEARCH_PERMISSIONS = { permissions: ['history', 'bookmarks'] };
+const SEARCH_GROUP_LIMIT = 3;
+// Recent visits searched locally on every keystroke; Chrome's own history
+// search adds older pages for the current words.
+const SEARCH_RECENT_HISTORY = 3000;
+
+const search = {
+  open: false,
+  loaded: false,
+  granted: false,
+  sources: { tabs: [], saved: [], stash: [], bookmarks: null, history: null },
+  recentHistory: [],
+  currentWindowId: null,
+  rows: [],              // what each rendered option stands for, by index
+  selected: 0,
+  expanded: new Set(),   // groups opened with "N more"
+  sequence: 0,           // drops history answers that arrive after a newer keystroke
+  returnFocus: null,
+};
+
+const searchEl = id => document.getElementById(id);
+const searchLocale = () => (_currentLocale === 'zh-CN' ? 'zh-CN' : 'en-US');
+
+function localizeSearch() {
+  searchEl('searchTriggerLabel').textContent = t('search.trigger');
+  searchEl('searchPanel').setAttribute('aria-label', t('search.trigger'));
+  searchEl('searchGrantTitle').textContent = t('search.grantTitle');
+  searchEl('searchGrantText').textContent = t('search.grantText');
+  searchEl('searchGrantBtn').textContent = t('search.grantBtn');
+}
+
+async function loadGrantedSources() {
+  const [tree, recent] = await Promise.all([
+    chrome.bookmarks.getTree(),
+    chrome.history.search({ text: '', startTime: 0, maxResults: SEARCH_RECENT_HISTORY }),
+  ]);
+  search.sources.bookmarks = flattenBookmarks(tree);
+  search.recentHistory = recent;
+  search.sources.history = recent;
+}
+
+async function loadSearchSources() {
+  const [tabs, current, saved, stash, granted] = await Promise.all([
+    chrome.tabs.query({}),
+    chrome.windows.getCurrent(),
+    getSavedTabs(),
+    collectedStore.list(),
+    chrome.permissions.contains(SEARCH_PERMISSIONS),
+  ]);
+  search.currentWindowId = current.id;
+  search.sources.tabs = tabs
+    .map(tab => ({ id: tab.id, windowId: tab.windowId, url: tab.url || tab.pendingUrl, title: tab.title }))
+    .filter(tab => isRealTabUrl(tab.url));
+  search.sources.saved = saved.active;
+  search.sources.stash = stash;
+  search.granted = granted;
+  if (granted) {
+    await loadGrantedSources();
+  } else {
+    search.sources.bookmarks = null;
+    search.sources.history = null;
+    search.recentHistory = [];
+  }
+  search.loaded = true;
+}
+
+function searchDomain(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return ''; }
+}
+
+function searchDay(iso, withTime = false) {
+  const options = withTime ? { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric' };
+  return new Date(iso).toLocaleDateString(searchLocale(), options);
+}
+
+function visitLabel(ms) {
+  if (!ms) return '';
+  const when = new Date(ms);
+  const time = when.toLocaleTimeString(searchLocale(), { hour: '2-digit', minute: '2-digit' });
+  const bucket = dayBucket(ms);
+  if (bucket === 'today') return t('search.today', { time });
+  if (bucket === 'yesterday') return t('search.yesterday', { time });
+  return when.toLocaleDateString(searchLocale(), { month: 'short', day: 'numeric' });
+}
+
+function searchMeta(meta, act) {
+  return `<span class="search-meta">${escapeHtml(meta)}</span><span class="search-act"><kbd>↵</kbd>${escapeHtml(act)}</span>`;
+}
+
+function renderSearchItem(item, tokens) {
+  if (item.kind === 'record') {
+    return `<span class="search-record-icon">${ICONS.stash}</span>`
+      + `<span class="search-title">${highlight(item.name, tokens)}</span>`
+      + `<span class="search-domain">${escapeHtml(t('tabGroups.tabCount', { n: item.count }))}</span>`
+      + searchMeta(searchDay(item.savedAt), t('search.actShow'));
+  }
+  const [meta, act] = {
+    tab:       () => [t(item.windowId === search.currentWindowId ? 'search.thisWindow' : 'search.otherWindow'), t('search.actSwitch')],
+    saved:     () => [timeAgo(item.savedAt), t('search.actOpen')],
+    stashPage: () => [t('search.inRecord', { name: item.recordName || searchDay(item.savedAt, true) }), t('search.actOpen')],
+    bookmark:  () => [item.path.join(' › '), t('search.actOpen')],
+    history:   () => [visitLabel(item.lastVisitTime), t('search.actOpen')],
+  }[item.kind]();
+  return `<img class="search-favicon" src="${escapeHtml(faviconUrl(item.url, chrome.runtime.id))}" alt="">`
+    + `<span class="search-title">${highlight(item.title || item.url, tokens)}</span>`
+    + `<span class="search-domain">${escapeHtml(searchDomain(item.url))}</span>`
+    + searchMeta(meta, act);
+}
+
+function searchOption(item, inner, className = 'search-row') {
+  const index = search.rows.push(item) - 1;
+  return `<div class="${className}" id="search-option-${index}" role="option" aria-selected="false" data-search-index="${index}" data-search-kind="${item.kind}">${inner}</div>`;
+}
+
+function renderSearchGroup(group, tokens) {
+  const name = escapeHtml(t(`search.group.${group.key}`));
+  const shown = search.expanded.has(group.key) ? group.items : group.items.slice(0, SEARCH_GROUP_LIMIT);
+  const rest = group.items.length - shown.length;
+  return `<div class="search-group" role="group" aria-label="${name}" data-search-group="${group.key}">`
+    + `<div class="search-group-head" role="presentation"><span>${name}</span><span class="search-group-count">${group.items.length}</span></div>`
+    + shown.map(item => searchOption(item, renderSearchItem(item, tokens))).join('')
+    + (rest > 0 ? searchOption({ kind: 'more', group: group.key }, escapeHtml(t('search.more', { n: rest })), 'search-row search-more') : '')
+    + '</div>';
+}
+
+function selectSearchRow(index) {
+  const input = searchEl('searchInput');
+  const previous = searchEl('searchResults').querySelector('.search-row.is-selected');
+  previous?.classList.remove('is-selected');
+  previous?.setAttribute('aria-selected', 'false');
+  search.selected = Math.max(0, Math.min(index, search.rows.length - 1));
+  const row = document.getElementById(`search-option-${search.selected}`);
+  if (!row) { input.removeAttribute('aria-activedescendant'); return; }
+  row.classList.add('is-selected');
+  row.setAttribute('aria-selected', 'true');
+  input.setAttribute('aria-activedescendant', row.id);
+  row.scrollIntoView({ block: 'nearest' });
+}
+
+function renderSearch() {
+  const input = searchEl('searchInput');
+  const query = input.value.trim();
+  const { tokens, groups } = searchAll({ query, ...search.sources });
+  const scope = t(search.granted ? 'search.scopeAll' : 'search.scopeBase');
+  input.placeholder = t(search.granted ? 'search.placeholderAll' : 'search.placeholder');
+
+  searchEl('searchMessage').innerHTML = !tokens.length ? escapeHtml(t('search.hint'))
+    : groups.length ? ''
+    : `<div class="search-none"><b>${escapeHtml(t('search.none', { q: query }))}</b><span>${escapeHtml(t('search.noneHint', { scope }))}</span></div>`;
+
+  search.rows = [];
+  const results = searchEl('searchResults');
+  results.innerHTML = groups.map(group => renderSearchGroup(group, tokens)).join('');
+  results.querySelectorAll('.search-favicon').forEach(img => {
+    img.addEventListener('error', () => { img.style.visibility = 'hidden'; }, { once: true });
+  });
+  input.setAttribute('aria-expanded', String(search.rows.length > 0));
+  searchEl('searchGrant').hidden = !search.loaded || search.granted;
+  searchEl('searchFoot').innerHTML = `<span><kbd>↑</kbd><kbd>↓</kbd> ${escapeHtml(t('search.keySelect'))}</span>`
+    + `<span><kbd>↵</kbd> ${escapeHtml(t('search.keyOpen'))}</span>`
+    + `<span><kbd>esc</kbd> ${escapeHtml(t('search.keyClose'))}</span>`
+    + `<span class="search-scope">${escapeHtml(t('search.scopeLabel', { scope }))}</span>`;
+  selectSearchRow(search.selected);
+}
+
+// Chrome's own history search finds older pages for the current words.
+async function refreshSearchHistory() {
+  const query = searchEl('searchInput').value.trim();
+  const sequence = ++search.sequence;
+  if (!search.granted || !query) return;
+  try {
+    const found = await chrome.history.search({ text: query, startTime: 0, maxResults: 200 });
+    if (sequence !== search.sequence || !search.open) return;
+    search.sources.history = [...search.recentHistory, ...found];
+    renderSearch();
+  } catch (err) {
+    console.warn('[tab-out] History search failed:', err);
+  }
+}
+
+async function openSearch() {
+  if (search.open) { searchEl('searchInput').focus(); return; }
+  search.open = true;
+  search.loaded = false;
+  search.returnFocus = document.activeElement;
+  search.expanded.clear();
+  search.selected = 0;
+  const input = searchEl('searchInput');
+  input.value = '';
+  searchEl('searchOverlay').hidden = false;
+  input.focus();
+  renderSearch();
+  try {
+    await loadSearchSources();
+  } catch (err) {
+    console.warn('[tab-out] Search could not load its sources:', err);
+  }
+  if (!search.open) return;
+  renderSearch();
+  refreshSearchHistory();
+}
+
+function closeSearch() {
+  if (!search.open) return;
+  search.open = false;
+  search.sequence++;
+  searchEl('searchOverlay').hidden = true;
+  searchEl('searchResults').innerHTML = '';
+  search.rows = [];
+  const back = search.returnFocus?.isConnected && search.returnFocus !== document.body ? search.returnFocus : null;
+  search.returnFocus = null;
+  back?.focus();
+}
+
+// The record may have changed since the overlay opened, so find the page by its address again.
+async function openStashedPage(item) {
+  const record = await collectedStore.get(item.recordId);
+  const index = record ? record.tabs.findIndex(page => page.url === item.url) : -1;
+  const open = (await chrome.tabs.query({})).find(tab => tab.url === item.url);
+  if (open) {
+    await chrome.tabs.update(open.id, { active: true });
+    await chrome.windows.update(open.windowId, { focused: true });
+  } else {
+    await chrome.tabs.create({ url: item.url, active: true });
+  }
+  if (index !== -1) await collectedStore.takeTab(item.recordId, index);
+  await renderTabGroups();
+}
+
+function showStashRecord(recordId) {
+  const card = document.querySelector(`.tab-group-card[data-group-id="${CSS.escape(recordId)}"]`);
+  if (!card) return;
+  card.classList.add('expanded', 'search-found');
+  card.scrollIntoView({ block: 'center' });
+  setTimeout(() => card.classList.remove('search-found'), 1600);
+}
+
+async function activateSearchRow(index) {
+  const item = search.rows[index];
+  if (!item) return;
+  if (item.kind === 'more') {
+    // The first newly shown result takes the place of "N more".
+    search.expanded.add(item.group);
+    renderSearch();
+    selectSearchRow(index);
+    return;
+  }
+  closeSearch();
+  try {
+    if (item.kind === 'tab') {
+      await chrome.tabs.update(item.id, { active: true });
+      await chrome.windows.update(item.windowId, { focused: true });
+    } else if (item.kind === 'saved') {
+      await chrome.tabs.create({ url: item.url, active: true });
+    } else if (item.kind === 'stashPage') {
+      await openStashedPage(item);
+    } else if (item.kind === 'record') {
+      showStashRecord(item.recordId);
+    } else {
+      // Bookmarks and history replace this new-tab page, like picking an address-bar suggestion.
+      const current = await chrome.tabs.getCurrent();
+      await chrome.tabs.update(current.id, { url: item.url });
+    }
+  } catch (err) {
+    console.warn('[tab-out] Could not open search result:', err);
+    showToast(t('toast.openFailed'));
+  }
+}
+
+searchEl('searchTrigger').addEventListener('click', () => openSearch());
+
+// "/" opens search unless the user is typing somewhere or a dialog is open.
+document.addEventListener('keydown', e => {
+  if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || e.isComposing || search.open) return;
+  if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+  if (document.getElementById('shortcutDialogOverlay').style.display !== 'none') return;
+  e.preventDefault();
+  openSearch();
+});
+
+searchEl('searchInput').addEventListener('input', () => {
+  search.expanded.clear();
+  search.selected = 0;
+  renderSearch();
+  refreshSearchHistory();
+});
+
+searchEl('searchInput').addEventListener('keydown', e => {
+  // Enter also confirms a Chinese input method's candidate; leave that to the IME.
+  if (e.isComposing || e.keyCode === 229) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    selectSearchRow(search.selected + (e.key === 'ArrowDown' ? 1 : -1));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    activateSearchRow(search.selected);
+  }
+});
+
+searchEl('searchOverlay').addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    closeSearch();
+  } else if (e.key === 'Tab') {
+    // Keep the keyboard inside the dialog: the input and, when shown, the grant button.
+    e.preventDefault();
+    const stops = [searchEl('searchInput'), searchEl('searchGrantBtn')].filter(el => el.offsetParent !== null);
+    const at = stops.indexOf(document.activeElement);
+    stops[(at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length]?.focus();
+  }
+});
+
+searchEl('searchOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSearch();
+});
+
+// Clicking a result must not take the focus away from the input.
+searchEl('searchResults').addEventListener('mousedown', e => e.preventDefault());
+searchEl('searchResults').addEventListener('mousemove', e => {
+  const row = e.target.closest('[data-search-index]');
+  if (row && Number(row.dataset.searchIndex) !== search.selected) selectSearchRow(Number(row.dataset.searchIndex));
+});
+searchEl('searchResults').addEventListener('click', e => {
+  const row = e.target.closest('[data-search-index]');
+  if (row) activateSearchRow(Number(row.dataset.searchIndex));
+});
+
+searchEl('searchGrantBtn').addEventListener('click', async () => {
+  let granted = false;
+  try {
+    granted = await chrome.permissions.request(SEARCH_PERMISSIONS);
+  } catch (err) {
+    console.warn('[tab-out] Permission request failed:', err);
+  }
+  if (!search.open) return;
+  if (granted) {
+    try {
+      await loadGrantedSources();
+      search.granted = true;
+    } catch (err) {
+      console.warn('[tab-out] Bookmarks and history could not be read:', err);
+    }
+    renderSearch();
+    refreshSearchHistory();
+  }
+  searchEl('searchInput').focus();
+});
 
 
 /* ----------------------------------------------------------------

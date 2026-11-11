@@ -13,7 +13,9 @@ const ORIGINAL_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6xQrQfiVeE5u4U
 
 test('manifest keeps the original key and only the three core permissions', () => {
   assert.deepEqual(manifest.permissions, ['tabs', 'storage', 'favicon']);
-  for (const field of ['host_permissions', 'optional_permissions', 'optional_host_permissions', 'commands', 'omnibox']) {
+  // Search asks for these only when the user turns it on (owner decision, 2026-11-12).
+  assert.deepEqual(manifest.optional_permissions, ['history', 'bookmarks']);
+  for (const field of ['host_permissions', 'optional_host_permissions', 'commands', 'omnibox']) {
     assert.equal(manifest[field], undefined, `${field} must not be declared`);
   }
   assert.equal(manifest.version, '3.0.0');
@@ -33,9 +35,9 @@ test('every local script and stylesheet referenced by the page exists', () => {
   }
 });
 
-test('every literal getElementById in app.js resolves to static markup', () => {
+test('every literal getElementById (or searchEl) in app.js resolves to static markup', () => {
   const app = read('app.js');
-  const ids = [...new Set([...app.matchAll(/getElementById\(['"]([^'"]+)['"]\)/g)].map(match => match[1]))];
+  const ids = [...new Set([...app.matchAll(/(?:getElementById|searchEl)\(['"]([^'"]+)['"]\)/g)].map(match => match[1]))];
   const missing = ids.filter(id => !new RegExp(`id=["']${id}["']`).test(html));
   assert.deepEqual(missing, []);
 });
@@ -101,4 +103,24 @@ test('the open-tabs view follows tab changes in other windows', () => {
   assert.match(app, /addEventListener\('visibilitychange'/, 'a hidden page catches up when shown again');
   const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
   assert.ok(scripts.indexOf('lib/live-refresh.js') !== -1 && scripts.indexOf('lib/live-refresh.js') < scripts.indexOf('app.js'));
+});
+
+test('search reads bookmarks and history but never changes them', () => {
+  const app = read('app.js');
+  assert.doesNotMatch(app, /chrome\.bookmarks\.(create|update|move|remove|removeTree)\(/, 'app.js must not change bookmarks');
+  assert.doesNotMatch(app, /chrome\.history\.(addUrl|deleteUrl|deleteRange|deleteAll)\(/, 'app.js must not change history');
+  const requests = [...app.matchAll(/chrome\.permissions\.request\(/g)].length;
+  assert.equal(requests, 1, 'permissions are requested in one place, when the user turns on bookmarks and history');
+  assert.match(app, /permissions: \['history', 'bookmarks'\]/);
+});
+
+test('the search overlay is static markup, hidden until opened, loaded after its helpers', () => {
+  assert.match(html, /<button[^>]+id="searchTrigger"/);
+  assert.match(html, /<div[^>]+id="searchOverlay"[^>]*\shidden/);
+  assert.match(html, /<input[^>]+id="searchInput"[^>]+role="combobox"/);
+  assert.match(html, /id="searchResults"[^>]+role="listbox"/);
+  const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
+  assert.ok(scripts.indexOf('lib/sanitize.js') < scripts.indexOf('lib/search.js'), 'search depends on sanitize');
+  assert.ok(scripts.indexOf('lib/search.js') !== -1 && scripts.indexOf('lib/search.js') < scripts.indexOf('app.js'));
+  assert.match(read('style.css'), /\.search-overlay\[hidden\]\s*\{\s*display:\s*none/, 'the overlay rule must not override [hidden]');
 });
