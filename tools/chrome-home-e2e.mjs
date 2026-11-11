@@ -61,6 +61,23 @@ async function reloadDashboard(minCards = 5) {
 async function waitForSite(site, count) {
   await waitFor(`chrome.tabs.query({}).then(tabs => tabs.filter(tab => (tab.url || tab.pendingUrl || '').startsWith('http://${site}.localhost')).length === ${count})`, `${site} has ${count} tabs`);
 }
+// Row buttons only appear while the row is hovered, so move the mouse onto the
+// row first, then onto the button, and press it there — like a person would.
+async function hoverClick(rowSelector, buttonSelector) {
+  const center = selector => evaluate(`(() => { const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
+  await evaluate(`document.querySelector(${JSON.stringify(rowSelector)}).scrollIntoView({ block: 'center' })`);
+  const row = await center(rowSelector);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: row.x, y: row.y });
+  await pause(150);
+  const { x, y } = await center(buttonSelector);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+  assert.equal(await evaluate(`document.elementFromPoint(${x}, ${y})?.closest(${JSON.stringify(buttonSelector)}) !== null`), true, `${buttonSelector} is not under the mouse`);
+  await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+  await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+}
+const undoOffered = () => evaluate(`getComputedStyle(document.getElementById('toastAction')).display !== 'none'
+  && document.getElementById('toast').classList.contains('visible')`);
 async function undo() {
   await click('#toastAction');
   await waitFor(`document.getElementById('toastText').textContent.length > 0`, 'undo toast');
@@ -152,6 +169,7 @@ try {
   const stashed = await storage('collectedGroupsV3');
   assert.equal(stashed.length, stashBefore + 1);
   assert.deepEqual(stashed[0].tabs.map(tab => tab.url).sort(), [url('shop', 'item-1'), url('shop', 'item-2')]);
+  assert.equal(stashed[0].name, 'Shop Localhost', 'a site stash is named after the site');
   assert.equal((await fixtureTabs()).find(tab => tab.url === url('shop', 'cart'))?.pinned, true, 'pinned page stays open');
   await undo();
   await waitForSite('shop', 3);
@@ -233,6 +251,53 @@ try {
   assert.equal((await storage('collectedGroupsV3')).length, before + 2, 'second migration adds nothing');
   pass('10 v2.3 projects migrated once into stash records');
   await screenshot('04-migrated');
+
+  // 11. a page that cannot be reopened stays in its stash record instead of being lost
+  await evaluate(`chrome.storage.local.get('collectedGroupsV3').then(({ collectedGroupsV3 }) => chrome.storage.local.set({ collectedGroupsV3: [
+    { id: 'mixed', savedAt: new Date().toISOString(), name: 'Mixed', tabs: [{ url: ${JSON.stringify(url('ok', 'page'))}, title: 'OK' }, { url: 'javascript:void(0)', title: 'Broken' }] },
+    ...collectedGroupsV3] }))`);
+  await reloadDashboard();
+  await click('[data-action="restore-group"][data-group-id="mixed"]');
+  await waitForSite('ok', 1);
+  await pause(300);
+  const mixed = (await storage('collectedGroupsV3')).find(record => record.id === 'mixed');
+  assert.deepEqual(mixed?.tabs.map(tab => tab.url), ['javascript:void(0)'], 'unopenable page stays in the record');
+  pass('11 restore keeps pages that could not be opened');
+
+  // 12. saving a pinned page for later closes nothing, so it must not take over the undo:
+  //     the toast keeps describing the previous close, and undo still reverts that close.
+  await reloadDashboard();
+  await click(`${card('mail')} [data-action="close-domain-tabs"]`);
+  await waitForSite('mail', 0);
+  const mailToast = await evaluate(`document.getElementById('toastText').textContent`);
+  const tech = (await fixtureTabs()).find(tab => tab.url === url('news', 'tech'));
+  await evaluate(`chrome.tabs.update(${tech.id}, { pinned: true })`);
+  const techChip = `${card('news')} .page-chip[data-tab-url="${url('news', 'tech')}"]`;
+  await hoverClick(techChip, `${techChip} [data-action="defer-single-tab"]`);
+  await waitFor(`chrome.storage.local.get('deferred').then(({ deferred }) => deferred.some(item => item.url === ${JSON.stringify(url('news', 'tech'))}))`, 'pinned page saved for later');
+  await pause(300);
+  assert.equal(await evaluate(`document.getElementById('toastText').textContent`), mailToast, 'toast still describes the previous close');
+  assert.equal((await fixtureTabs()).some(tab => tab.id === tech.id), true, 'pinned page stays open');
+  assert.equal(await evaluate(`Boolean(document.querySelector(${JSON.stringify(techChip)}))`), true, 'its row stays on the card');
+  await undo();
+  await waitForSite('mail', 2);
+  assert.equal((await storage('deferred')).some(item => item.url === url('news', 'tech')), true, 'undo of the close keeps the saved item');
+  await evaluate(`chrome.tabs.update(${tech.id}, { pinned: false })`);
+  pass('12 saving a pinned page for later leaves the previous undo intact');
+
+  // 13. a double click on "close all" keeps the undo available and closes once
+  await reloadDashboard();
+  const openBefore = (await fixtureTabs()).length;
+  // A real double click: the second press lands ~150ms later, while the cards are still animating out.
+  await evaluate(`document.querySelector('[data-action="close-all-open-tabs"]').click()`);
+  await pause(150);
+  await evaluate(`document.querySelector('[data-action="close-all-open-tabs"]')?.click()`);
+  await waitFor(`chrome.tabs.query({}).then(tabs => tabs.filter(tab => tab.url.includes('.localhost:${port}/')).length === 0)`, 'all closed by double click');
+  await pause(500);
+  assert.equal(await undoOffered(), true, 'undo is still offered after a double click');
+  await undo();
+  await waitFor(`chrome.tabs.query({}).then(tabs => tabs.filter(tab => (tab.url || tab.pendingUrl || '').includes('.localhost:${port}/')).length === ${openBefore})`, 'double-click close-all undone');
+  pass('13 double-clicking close all keeps one undo for everything');
 
   process.stdout.write(`PASS home guard [${locale}]\n`);
 } finally {

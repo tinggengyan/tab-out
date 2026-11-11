@@ -132,3 +132,30 @@ test('clear forgets the last operation', async () => {
   assert.equal(undo.canUndo(), false);
   assert.equal(await undo.undo(), null);
 });
+
+test('undo reopens a tab that was still loading by its pending URL', async () => {
+  const browser = fakeBrowser([
+    { id: 1, url: '', pendingUrl: 'https://slow.test/a', windowId: 7, index: 0 },
+    tab(2, 'https://keep.test/', 7, 1),
+  ]);
+  const undo = createUndoController(browser);
+  await undo.close([{ id: 1, url: 'https://slow.test/a', windowId: 7, index: 0, pinned: false }]);
+  await undo.undo();
+  assert.deepEqual(browser.calls.create.map(call => call.url), ['https://slow.test/a']);
+});
+
+test('undo keeps reopening the rest when one page cannot be opened', async () => {
+  const browser = fakeBrowser([tab(1, 'https://a.test/1', 7, 0), tab(2, 'javascript:void(0)', 7, 1), tab(3, 'https://a.test/3', 7, 2), tab(4, 'https://keep.test/', 7, 3)]);
+  const create = browser.tabsApi.create;
+  browser.tabsApi.create = async options => {
+    if (options.url.startsWith('javascript:')) throw new Error('Cannot create tab');
+    return create(options);
+  };
+  const undo = createUndoController(browser);
+  await undo.close([tab(1, 'https://a.test/1', 7, 0), tab(2, 'javascript:void(0)', 7, 1), tab(3, 'https://a.test/3', 7, 2)]);
+  const result = await undo.undo();
+  assert.equal(result.restored, 2);
+  assert.deepEqual(result.failed, ['javascript:void(0)']);
+  // the page after the failing one was still attempted (only successful creates are recorded)
+  assert.deepEqual(browser.calls.create.map(call => call.url), ['https://a.test/1', 'https://a.test/3']);
+});

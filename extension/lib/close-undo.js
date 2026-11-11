@@ -20,7 +20,9 @@
         const current = live.get(requested.id);
         if (requested.pinned || current?.pinned) { skippedPinned++; continue; }
         if (!current) continue; // closed elsewhere since the page rendered
-        entries.push({ id: current.id, url: current.url, windowId: current.windowId, index: current.index });
+        // A tab that is still loading has no committed url yet; its address is in pendingUrl.
+        const url = current.url || current.pendingUrl || requested.url;
+        entries.push({ id: current.id, url, windowId: current.windowId, index: current.index });
       }
       if (entries.length === 0) return { closed: 0, skippedPinned };
 
@@ -49,21 +51,31 @@
         byWindow.get(entry.windowId).push(entry);
       }
 
+      // One page that Chrome refuses to open must not stop the others.
+      let restored = 0;
+      const failed = [];
+      const open = async (options, { newWindow = false } = {}) => {
+        try {
+          const created = await (newWindow ? windowsApi.create(options) : tabsApi.create(options));
+          restored++;
+          return created;
+        } catch { failed.push(options.url); return null; }
+      };
+
       for (const [windowId, group] of byWindow) {
         group.sort((a, b) => a.index - b.index);
         if (openWindows.has(windowId)) {
-          for (const entry of group) {
-            await tabsApi.create({ windowId, index: entry.index, url: entry.url, active: false });
-          }
-        } else {
-          const [first, ...rest] = group;
-          const win = await windowsApi.create({ url: first.url, focused: false });
-          for (const [offset, entry] of rest.entries()) {
-            await tabsApi.create({ windowId: win.id, index: offset + 1, url: entry.url, active: false });
-          }
+          for (const entry of group) await open({ windowId, index: entry.index, url: entry.url, active: false });
+          continue;
+        }
+        // Original window is gone: the first page that opens creates the new window.
+        let win = null;
+        for (const entry of group) {
+          if (!win) { win = await open({ url: entry.url, focused: false }, { newWindow: true }); continue; }
+          await open({ windowId: win.id, url: entry.url, active: false });
         }
       }
-      return { restored: entries.length, meta };
+      return { restored, failed, meta };
     }
 
     function clear() { last = null; }

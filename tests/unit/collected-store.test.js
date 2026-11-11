@@ -125,3 +125,14 @@ test('merge appends imported records and skips ones already present by id or sou
   assert.equal(added, 1);
   assert.deepEqual((await store.list()).map(record => record.id), ['c1', 'c2', 'c3']);
 });
+
+test('get returns one record and replaceTabs keeps only the given pages', async () => {
+  const store = createCollectedStore(memoryStorage(), { id: sequence('c') });
+  await store.add({ name: 'Mixed', tabs: [page('https://a.test/'), page('javascript:void(0)')] });
+  assert.equal((await store.get('c1')).name, 'Mixed');
+  assert.equal(await store.get('missing'), null);
+  await store.replaceTabs('c1', [page('javascript:void(0)')]);
+  assert.deepEqual((await store.get('c1')).tabs, [page('javascript:void(0)')]);
+  await store.replaceTabs('c1', []);
+  assert.equal(await store.get('c1'), null, 'an emptied record is removed');
+});

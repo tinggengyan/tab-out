@@ -1050,6 +1050,10 @@ function updateSideColumn() {
    CLOSE HELPERS — shared by the handlers below
    ---------------------------------------------------------------- */
 
+function siteLabel(group) {
+  return group.domain === '__landing-pages__' ? t('label.homepages') : (group.label || friendlyDomain(group.domain));
+}
+
 function findDomainGroup(domainId) {
   return domainGroups.find(g => 'domain-' + g.domain.replace(/[^a-z0-9]/g, '-') === domainId);
 }
@@ -1108,12 +1112,29 @@ async function confirmCloseAllOnce(count) {
    instead of one per door.
    ---------------------------------------------------------------- */
 
-document.addEventListener('click', async (e) => {
+// Closing and stashing run one at a time: a double click must not close
+// (or record an undo for) the same tabs twice.
+const EXCLUSIVE_ACTIONS = new Set([
+  'close-single-tab', 'defer-single-tab', 'collect-domain-tabs', 'close-domain-tabs',
+  'dedup-keep-one', 'dedup-all', 'close-all-open-tabs', 'collect-all-tabs', 'undo-last',
+]);
+let actionInProgress = false;
+async function exclusive(action, run) {
+  if (!EXCLUSIVE_ACTIONS.has(action)) return run();
+  if (actionInProgress) return;
+  actionInProgress = true;
+  try { await run(); } finally { actionInProgress = false; }
+}
+
+document.addEventListener('click', (e) => {
   // Walk up the DOM to find the nearest element with data-action
   const actionEl = e.target.closest('[data-action]');
   if (!actionEl) return;
-
   const action = actionEl.dataset.action;
+  return exclusive(action, () => handleAction(e, actionEl, action));
+});
+
+async function handleAction(e, actionEl, action) {
 
   // ---- Close duplicate Tab Out tabs ----
   if (action === 'close-tabout-dupes') {
@@ -1180,11 +1201,13 @@ document.addEventListener('click', async (e) => {
       return;
     }
 
-    await undoController.close(getRealTabs().filter(tab => tab.url === tabUrl), { kind: 'defer', deferredId: saved.id });
+    const result = await undoController.close(getRealTabs().filter(tab => tab.url === tabUrl), { kind: 'defer', deferredId: saved.id });
     await fetchOpenTabs();
+    await renderDeferredColumn();
+    // Nothing closed (pinned or already gone): keep the row and the current toast.
+    if (result.closed === 0) return;
     animateChipOut(actionEl.closest('.page-chip'));
     showToast(t('toast.savedForLater'), { undo: true });
-    await renderDeferredColumn();
     return;
   }
 
@@ -1232,11 +1255,11 @@ document.addEventListener('click', async (e) => {
   if (action === 'collect-domain-tabs') {
     const domainGroup = findDomainGroup(actionEl.dataset.domainId);
     if (!domainGroup) return;
-    const done = await collectTabs(domainGroup.tabs);
+    const done = await collectTabs(domainGroup.tabs, { name: siteLabel(domainGroup) });
     if (!done) return;
 
     await afterSiteClosed(card, domainGroup, done.result);
-    showToast(t('toast.collected', { n: done.record.tabs.length }), { undo: done.result.closed > 0 });
+    if (done.result.closed > 0) showToast(t('toast.collected', { n: done.record.tabs.length }), { undo: true });
     await renderTabGroups();
     return;
   }
@@ -1248,8 +1271,8 @@ document.addEventListener('click', async (e) => {
 
     const result = await undoController.close(group.tabs, { kind: 'domain' });
     await afterSiteClosed(card, group, result);
-    const groupLabel = group.domain === '__landing-pages__' ? t('label.homepages') : (group.label || friendlyDomain(group.domain));
-    showToast(tPlural('toast.closedFrom', 'toast.closedFromPlural', result.closed, { label: groupLabel }), { undo: result.closed > 0 });
+    if (result.closed === 0) return;
+    showToast(tPlural('toast.closedFrom', 'toast.closedFromPlural', result.closed, { label: siteLabel(group) }), { undo: true });
     return;
   }
 
@@ -1277,6 +1300,7 @@ document.addEventListener('click', async (e) => {
 
     const result = await undoController.close(realTabs, { kind: 'all' });
     await fetchOpenTabs();
+    if (result.closed === 0) return;
     playCloseSound();
     if (result.skippedPinned > 0) {
       await renderDashboard();
@@ -1289,7 +1313,7 @@ document.addEventListener('click', async (e) => {
         animateCardOut(c);
       });
     }
-    showToast(t('toast.allClosed'), { undo: result.closed > 0 });
+    showToast(t('toast.allClosed'), { undo: true });
     return;
   }
 
@@ -1298,13 +1322,17 @@ document.addEventListener('click', async (e) => {
     const result = await undoController.undo();
     hideToast();
     if (!result) { showToast(t('toast.undoExpired')); return; }
-    if (result.meta.collectedId) await removeTabGroupRecord(result.meta.collectedId);
-    if (result.meta.deferredId)  await removeSavedTab(result.meta.deferredId);
+    const { collectedId, deferredId } = result.meta;
+    // Pages Chrome refused to reopen stay where they were saved.
+    if (collectedId) await keepOnlyFailedInRecord(collectedId, result.failed);
+    if (deferredId && result.failed.length === 0) await removeSavedTab(deferredId);
     await renderDashboard();
-    showToast(t('toast.undone', { n: result.restored }));
+    showToast(result.failed.length
+      ? t('toast.undonePartial', { n: result.restored, failed: result.failed.length })
+      : t('toast.undone', { n: result.restored }));
     return;
   }
-});
+}
 
 // ---- Archive toggle — expand/collapse the archive section ----
 document.addEventListener('click', (e) => {
@@ -1358,10 +1386,11 @@ document.addEventListener('input', async (e) => {
 const collectedStore = createCollectedStore(chrome.storage.local);
 
 // Saves the non-pinned tabs as one record, then closes them (undoable).
-async function collectTabs(tabs) {
+// A site stash is named after the site; "stash all" keeps just its date.
+async function collectTabs(tabs, { name } = {}) {
   const targets = collectableTabs(tabs);
   if (targets.length === 0) return null;
-  const record = await collectedStore.add({ tabs: targets.map(tab => ({ url: tab.url, title: tab.title })) });
+  const record = await collectedStore.add({ name, tabs: targets.map(tab => ({ url: tab.url, title: tab.title })) });
   const result = await undoController.close(targets, { kind: 'collect', collectedId: record.id });
   return { record, result };
 }
@@ -1384,13 +1413,14 @@ async function collectAllTabs() {
     });
   }
 
-  showToast(t('toast.collected', { n: done.record.tabs.length }), { undo: done.result.closed > 0 });
+  if (done.result.closed > 0) showToast(t('toast.collected', { n: done.record.tabs.length }), { undo: true });
   await renderTabGroups();
 }
 
-// Drops a stash record without a toast (used when its stash is undone).
-async function removeTabGroupRecord(groupId) {
-  await collectedStore.remove(groupId);
+// After undoing a stash: drop the record, except pages that could not be reopened.
+async function keepOnlyFailedInRecord(groupId, failedUrls) {
+  const record = await collectedStore.get(groupId);
+  if (record) await collectedStore.replaceTabs(groupId, record.tabs.filter(page => failedUrls.includes(page.url)));
   await renderTabGroups();
 }
 
@@ -1398,12 +1428,21 @@ async function openUrlSet() {
   return new Set((await chrome.tabs.query({})).map(tab => tab.url));
 }
 
+// Opens first, then removes only what opened (pages already open count as
+// restored). A page Chrome refuses to open stays in the record.
 async function restoreTabGroup(groupId) {
-  const record = await collectedStore.takeAll(groupId);
+  const record = await collectedStore.get(groupId);
   if (!record) return;
-  const targets = restoreTargets(record, await openUrlSet());
-  for (const page of targets) await chrome.tabs.create({ url: page.url, active: false });
-  showToast(t('toast.restored', { n: targets.length }));
+  const failed = [];
+  let opened = 0;
+  for (const page of restoreTargets(record, await openUrlSet())) {
+    try { await chrome.tabs.create({ url: page.url, active: false }); opened++; }
+    catch { failed.push(page); }
+  }
+  await collectedStore.replaceTabs(groupId, failed);
+  showToast(failed.length
+    ? t('toast.restorePartial', { n: opened, failed: failed.length })
+    : t('toast.restored', { n: opened }));
   await renderDashboard();
 }
 
@@ -1414,9 +1453,13 @@ async function deleteTabGroup(groupId) {
 }
 
 async function restoreSingleGroupTab(groupId, tabIdx) {
-  const page = await collectedStore.takeTab(groupId, tabIdx);
+  const page = (await collectedStore.get(groupId))?.tabs[tabIdx];
   if (!page) return;
-  if (!(await openUrlSet()).has(page.url)) await chrome.tabs.create({ url: page.url, active: false });
+  if (!(await openUrlSet()).has(page.url)) {
+    try { await chrome.tabs.create({ url: page.url, active: false }); }
+    catch { showToast(t('toast.openFailed')); return; }
+  }
+  await collectedStore.takeTab(groupId, tabIdx);
   await renderDashboard();
 }
 
@@ -1498,7 +1541,7 @@ document.addEventListener('click', async (e) => {
   const action = actionEl.dataset.action;
 
   if (action === 'collect-all-tabs') {
-    await collectAllTabs();
+    await exclusive(action, collectAllTabs);
     return;
   }
 

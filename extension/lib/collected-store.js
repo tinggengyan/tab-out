@@ -88,6 +88,18 @@
         await write([record, ...(await read())]);
         return record;
       },
+      async get(recordId) {
+        return (await read()).find(item => item.id === recordId) || null;
+      },
+      // Keeps only `tabs` in the record (e.g. the pages that failed to reopen); drops it when empty.
+      async replaceTabs(recordId, tabs) {
+        const records = await read();
+        const record = records.find(item => item.id === recordId);
+        if (!record) return null;
+        record.tabs = toPages(tabs);
+        await write(record.tabs.length ? records : records.filter(item => item !== record));
+        return record.tabs.length ? record : null;
+      },
       async remove(recordId) {
         const records = await read();
         const record = records.find(item => item.id === recordId) || null;

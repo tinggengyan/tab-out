@@ -4,12 +4,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
 
 const root = path.resolve(__dirname, '../..');
 const read = file => fs.readFileSync(path.join(root, 'extension', file), 'utf8');
 const manifest = JSON.parse(read('manifest.json'));
 const html = read('index.html');
+const ORIGINAL_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6xQrQfiVeE5u4U4hrm5S6HRw6UldPTYWbN2CywC6xghlQvTX5Yp7y1d7P88Wgo6ueexVbK7T5LIrYht7W8VJLDcMcF2CpbU/fzVIvQcXVkPk1xmRCkuu/XdZmHu1XAMisCjADK5K8BkBk5SLZDyiaUP43lzhfNHqNSst2ivLABmWOynTaI2OTdFQKIEV8suS/dOUxhVod9AQkfj6Ce82Bm2NUa/jHM0cW9P+Ptb/+CUFXbDIW7pselyVS4GNcED9pWShWTKZ9EDSh3BIBrPer4afQjQEGbTVtBzTyRbAMLsEtpmu+mXNDeeESoo1k+GrkrE9hJ1NgSfuTHcjn3yqbQIDAQAB';
 
 test('manifest keeps the original key and only the three core permissions', () => {
   assert.deepEqual(manifest.permissions, ['tabs', 'storage', 'favicon']);
@@ -17,8 +17,9 @@ test('manifest keeps the original key and only the three core permissions', () =
     assert.equal(manifest[field], undefined, `${field} must not be declared`);
   }
   assert.equal(manifest.version, '3.0.0');
-  const original = JSON.parse(execFileSync('git', ['show', '40579ec:extension/manifest.json'], { cwd: root, encoding: 'utf8' }));
-  assert.equal(manifest.key, original.key);
+  // The public key from the original fork (40579ec). It fixes the extension ID, so users keep
+  // their storage. Inlined so the test also works in a shallow CI checkout.
+  assert.equal(manifest.key, ORIGINAL_KEY);
 });
 
 test('every local script and stylesheet referenced by the page exists', () => {
