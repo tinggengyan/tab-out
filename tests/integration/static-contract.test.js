@@ -80,3 +80,13 @@ test('stash records use the collected store and migrate before the first render'
   assert.ok(scripts.indexOf('lib/collected-store.js') !== -1 && scripts.indexOf('lib/collected-store.js') < scripts.indexOf('app.js'));
   assert.ok(html.indexOf('id="tabGroupsColumn"') < html.indexOf('id="deferredColumn"'), 'stash column sits above save-for-later');
 });
+
+test('import and export go through config-io and never touch the legacy tabGroups key', () => {
+  const app = read('app.js');
+  assert.doesNotMatch(app, /['"]tabGroups['"]/, 'app.js must not name the legacy tabGroups key');
+  assert.match(app, /parseImport\(/);
+  assert.match(app, /buildExport\(/);
+  const scripts = [...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g)].map(match => match[1]);
+  assert.ok(scripts.indexOf('lib/collected-store.js') < scripts.indexOf('lib/config-io.js'), 'config-io depends on collected-store');
+  assert.ok(scripts.indexOf('lib/config-io.js') !== -1 && scripts.indexOf('lib/config-io.js') < scripts.indexOf('app.js'));
+});

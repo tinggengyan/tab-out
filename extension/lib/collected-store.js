@@ -52,10 +52,17 @@
     }, group.name);
   }
 
-  // Appends records whose sourceId is not already present; returns how many were added.
+  // Appends records not already present (same id or same sourceId); returns how many were added.
   function mergeBySource(existing, incoming) {
-    const seen = new Set(existing.map(record => record.sourceId).filter(Boolean));
-    const added = incoming.filter(record => record && !(record.sourceId && seen.has(record.sourceId)));
+    const ids = new Set(existing.map(record => record.id));
+    const sources = new Set(existing.map(record => record.sourceId).filter(Boolean));
+    const added = [];
+    for (const record of incoming) {
+      if (!record || ids.has(record.id) || (record.sourceId && sources.has(record.sourceId))) continue;
+      ids.add(record.id);
+      if (record.sourceId) sources.add(record.sourceId);
+      added.push(record);
+    }
     return { records: [...existing, ...added], added: added.length };
   }
 

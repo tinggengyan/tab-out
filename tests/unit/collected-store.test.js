@@ -111,3 +111,17 @@ test('migrateLegacy keeps records the user already stashed in v3', async () => {
   await migrateLegacy(storage, { id: sequence('m') });
   assert.deepEqual(storage.inspect().collectedGroupsV3.map(record => record.id).sort(), ['m1', 'mine']);
 });
+
+test('merge appends imported records and skips ones already present by id or sourceId', async () => {
+  const store = createCollectedStore(memoryStorage({ collectedGroupsV3: [
+    { id: 'c1', savedAt: '2026-11-10T00:00:00.000Z', tabs: [page('https://a.test/')] },
+    { id: 'c2', savedAt: '2026-11-09T00:00:00.000Z', sourceId: 'workspace:w1', tabs: [page('https://b.test/')] },
+  ] }));
+  const added = await store.merge([
+    { id: 'c1', savedAt: '2026-11-10T00:00:00.000Z', tabs: [page('https://a.test/')] },
+    { id: 'x9', savedAt: '2026-11-09T00:00:00.000Z', sourceId: 'workspace:w1', tabs: [page('https://b.test/')] },
+    { id: 'c3', savedAt: '2026-11-08T00:00:00.000Z', tabs: [page('https://c.test/')] },
+  ]);
+  assert.equal(added, 1);
+  assert.deepEqual((await store.list()).map(record => record.id), ['c1', 'c2', 'c3']);
+});

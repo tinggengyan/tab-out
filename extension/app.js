@@ -17,7 +17,7 @@
 
 const {
   escapeHtml, groupTabsBySite, isRealTabUrl, faviconUrl, duplicateTabIds, createUndoController,
-  createCollectedStore, migrateLegacy, collectableTabs, restoreTargets,
+  createCollectedStore, migrateLegacy, collectableTabs, restoreTargets, buildExport, parseImport,
 } = TabOutLib;
 
 // Every close goes through this controller so it can be undone for 30 seconds.
@@ -1584,15 +1584,8 @@ async function initShortcuts() {
    ---------------------------------------------------------------- */
 
 async function exportConfig() {
-  const { shortcuts = [], deferred = [], tabGroups = [] } =
-    await chrome.storage.local.get(['shortcuts', 'deferred', 'tabGroups']);
-  const payload = {
-    version:    1,
-    exportedAt: new Date().toISOString(),
-    shortcuts,
-    deferred,
-    tabGroups,
-  };
+  const { shortcuts = [], deferred = [] } = await chrome.storage.local.get(['shortcuts', 'deferred']);
+  const payload = buildExport({ shortcuts, deferred, collectedGroups: await collectedStore.list() });
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1605,41 +1598,36 @@ async function exportConfig() {
   showToast(t('toast.exported'));
 }
 
+// Accepts this version's export, the original fork's file and the v2.3 backup.
+// Shortcuts and saved-for-later are replaced; stash records are appended.
 async function importConfig(file) {
-  let data;
+  let parsed = null;
   try {
-    const text = await file.text();
-    data = JSON.parse(text);
-  } catch {
-    showToast(t('toast.importFailed'));
-    return;
-  }
-
-  const shortcuts = Array.isArray(data?.shortcuts) ? data.shortcuts : null;
-  const deferred  = Array.isArray(data?.deferred)  ? data.deferred  : null;
-  const tabGroups = Array.isArray(data?.tabGroups) ? data.tabGroups : null;
-  if (!shortcuts && !deferred && !tabGroups) {
+    parsed = parseImport(JSON.parse(await file.text()));
+  } catch { /* invalid JSON */ }
+  if (!parsed) {
     showToast(t('toast.importFailed'));
     return;
   }
 
   if (!confirm(t('confirm.import'))) return;
 
+  const { shortcuts, deferred, collectedGroups } = parsed;
   const update = {};
   if (shortcuts) update.shortcuts = shortcuts;
   if (deferred)  update.deferred  = deferred;
-  if (tabGroups) update.tabGroups = tabGroups;
-  await chrome.storage.local.set(update);
+  if (Object.keys(update).length) await chrome.storage.local.set(update);
+  const addedGroups = collectedGroups ? await collectedStore.merge(collectedGroups) : 0;
 
   // Refresh UI surfaces
   if (shortcuts) {
     _shortcuts = shortcuts;
     renderShortcuts();
   }
-  if (deferred)  await renderDeferredColumn();
-  if (tabGroups) await renderTabGroups();
+  if (deferred)        await renderDeferredColumn();
+  if (collectedGroups) await renderTabGroups();
 
-  const n = (shortcuts?.length || 0) + (deferred?.length || 0) + (tabGroups?.length || 0);
+  const n = (shortcuts?.length || 0) + (deferred?.length || 0) + addedGroups;
   showToast(tPlural('toast.imported', 'toast.importedPlural', n));
 }
 

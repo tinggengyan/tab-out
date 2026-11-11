@@ -100,7 +100,7 @@ const I18N_LOCALES = {
     'toast.imported':         'Imported {n} item',
     'toast.importedPlural':   'Imported {n} items',
     'toast.importFailed':     'Import failed: invalid file',
-    'confirm.import':         'Replace current shortcuts and saved tabs with imported data?',
+    'confirm.import':         'Replace current shortcuts and saved tabs with imported data? Stashed groups are added, not replaced.',
 
     // Tab Groups (OneTab)
     'collected.title':        'Stashed',
@@ -210,7 +210,7 @@ const I18N_LOCALES = {
     'toast.imported':         '已导入 {n} 项',
     'toast.importedPlural':   '已导入 {n} 项',
     'toast.importFailed':     '导入失败：文件无效',
-    'confirm.import':         '是否用导入的数据替换当前书签与保存项？',
+    'confirm.import':         '是否用导入的数据替换当前书签与稍后查看？收纳记录会追加，不会被替换。',
 
     // Tab Groups (OneTab)
     'collected.title':        '已收纳',
