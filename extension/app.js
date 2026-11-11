@@ -2110,6 +2110,7 @@ async function openSearch() {
   search.selected = 0;
   const input = searchEl('searchInput');
   input.value = '';
+  searchEl('searchGrantError').hidden = true;
   searchEl('searchOverlay').hidden = false;
   input.focus();
   renderSearch();
@@ -2264,11 +2265,17 @@ searchEl('searchResults').addEventListener('click', e => {
 });
 
 searchEl('searchGrantBtn').addEventListener('click', async () => {
+  const error = searchEl('searchGrantError');
+  error.hidden = true;
   let granted = false;
   try {
     granted = await chrome.permissions.request(SEARCH_PERMISSIONS);
   } catch (err) {
+    // Chrome refused before asking, e.g. the page is newer than the loaded manifest
+    // after an update that was not reloaded. Say so instead of doing nothing.
     console.warn('[tab-out] Permission request failed:', err);
+    error.textContent = t('search.grantFailed', { reason: String(err?.message || err).replace(/[.。]\s*$/, '') });
+    error.hidden = false;
   }
   if (!search.open) return;
   if (granted) {

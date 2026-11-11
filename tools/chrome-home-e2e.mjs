@@ -500,6 +500,20 @@ try {
   assert.equal(await evaluate(`document.querySelectorAll('#searchResults [data-search-kind]').length`), 0, 'nothing from the previous opening while loading');
   await waitFor(`document.querySelectorAll('#searchResults [data-search-kind]').length > 0`, 'results once loaded', 5000);
   await evaluate(`globalThis.__restoreContains()`);
+
+  // Chrome refuses the permission request (here: a manifest older than the page, as after an
+  // update that was not reloaded): the grant card says so instead of doing nothing
+  await evaluate(`Object.defineProperty(chrome.permissions, 'request', { configurable: true, writable: true,
+    value: () => Promise.reject(new Error('Only permissions specified in the manifest may be requested.')) })`);
+  await click('#searchGrantBtn');
+  await waitFor(`!document.getElementById('searchGrantError').hidden`, 'a refused request is explained on the grant card');
+  assert.match(await evaluate(`document.getElementById('searchGrantError').textContent`), /Only permissions specified in the manifest/);
+  assert.equal(await evaluate(`document.activeElement?.id`), 'searchInput', 'the keyboard goes back to the box');
+  await key('Escape', 'Escape', 27);
+  await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
+  await click('#searchTrigger');
+  await waitFor(`!document.getElementById('searchGrant').hidden`, 'sources loaded');
+  assert.equal(await evaluate(`document.getElementById('searchGrantError').hidden`), true, 'the next opening starts without the old error');
   await key('Escape', 'Escape', 27);
   await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
   const outside = requests.filter(request => !/^(chrome-extension|data):/.test(request));

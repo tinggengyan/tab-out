@@ -2016,6 +2016,8 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   font-size: 12px;
 }
 
+.search-grant-text .search-grant-error { color: var(--accent-rose); }
+
 .search-grant-btn {
   height: 28px;
   padding: 0 14px;
