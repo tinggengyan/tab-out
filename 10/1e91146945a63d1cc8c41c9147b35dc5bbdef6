@@ -1,0 +1,35 @@
+CHANGELOG.md
+  s_574aae6d673565::t_e34940f877bcfb 11
+CLAUDE.md
+  s_574aae6d673565::t_1dda7f2fd4f65e 40-41
+docs/ai-tasks/2026-11-11-soul-rebuild/design.md
+  s_574aae6d673565::t_20818b4f9c87bd 45-47
+docs/ai-tasks/2026-11-11-soul-rebuild/implementation.md
+  s_574aae6d673565::t_6510c261ce5f44 91-104
+extension/app.js
+  s_574aae6d673565::t_9d9be05d5acf19 1528-1534
+extension/index.html
+  s_574aae6d673565::t_41f2fe4c8e2be6 96,125-137
+extension/style.css
+  s_574aae6d673565::t_0bb6cb376ccaf8 1559,1579,1581,1585,1622-1629,1631-1634,1637-1646
+tests/integration/static-contract.test.js
+  s_574aae6d673565::t_3b4c868d0c90c4 82
+tools/chrome-home-e2e.mjs
+  s_574aae6d673565::t_004f6a34cb5549 322-352
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "101e91146945a63d1cc8c41c9147b35dc5bbdef6",
+  "prompts": {},
+  "sessions": {
+    "s_574aae6d673565": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_574aae6d673565",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
