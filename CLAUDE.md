@@ -24,21 +24,24 @@ npm test                      # node --test: tests/unit + tests/integration (~0.
 node --test tests/unit/close-undo.test.js                          # one file
 node --test --test-name-pattern="pinned" tests/unit/grouping.test.js   # one test
 npm run check                 # node --check over extension/, tools/, tests/
-npm run e2e:home              # home guard in headless Chrome for Testing (zh-CN + en)
+npm run e2e:home              # home guard (zh-CN + en) + granted search suite, headless Chrome for Testing
 npm run package               # dist/tab-out-3.0.0-store.zip
 ```
 
 `npm run e2e:home` (`tools/run-chrome-e2e.mjs` → `tools/chrome-home-e2e.mjs`) needs Chrome for Testing in `~/.cache/puppeteer/chrome` or `CHROME_FOR_TESTING=<binary>`. It runs each language in a disposable profile. `TAB_OUT_TEST_ARTIFACTS=<dir>` keeps the screenshots. It asserts the design.md §5 checks:
 
 - first card ≤ 100px from the top;
-- ≤ 30 visible controls on the first screen;
+- ≤ 31 visible controls on the first screen (30 until the owner added the search button on 2026-11-12);
 - card buttons on one row at 1440 and 1366;
 - zero http(s) requests from the page;
 - each core action takes one click and can be undone;
 - titles are escaped;
 - the v2.3 → v3 migration works;
 - pages opened or closed in another window appear without a reload (scenario 14, a regression guard rather than a §5 check);
-- with 12 stash records, every saved-for-later item is still on the first screen and stash rows stay compact (scenario 15).
+- with 12 stash records, every saved-for-later item is still on the first screen and stash rows stay compact (scenario 15);
+- search opens by button and `/`, finds open tabs, saved for later and the stash, and Enter acts on each kind of result, with no network requests (scenario 16).
+
+A third suite, `tools/chrome-search-e2e.mjs`, runs search with bookmarks and history granted. A headless browser cannot click Chrome's permission prompt, so the runner loads a copy of `extension/` whose optional permissions are made required (same key, same ID). The prompt itself is checked by hand.
 
 CI (`.github/workflows/verify.yml`, every push and PR) runs `npm test`, `npm run check`, a grep for remote scripts and inline handlers, and `npm run package`. It does not run the browser suite, so run `npm run e2e:home` locally before merging UI changes.
 
@@ -55,10 +58,12 @@ Manual testing: load `extension/` unpacked. Refresh the new tab after page chang
   | `grouping.js` | `groupTabsBySite` (homepages first, `config.js` overrides), `duplicateTabIds` (keeps a pinned, then the active, then the first copy), `faviconUrl` (Chrome `_favicon`; never Google). |
   | `close-undo.js` | `createUndoController`. All user-tab closes go through `close(tabs, meta)`. It closes by tab id, skips pinned or vanished tabs, and remembers one operation for 30 seconds. `undo()` reopens tabs in their original window and index, or in a new window if that one is gone. |
   | `collected-store.js` | Stash records under `collectedGroupsV3`, restored OneTab-style (restoring removes the record). `migrateLegacy` copies the owner's 2.x `workspacesV2` projects in once, idempotent by `sourceId`. |
+  | `search.js` | `searchAll` matches every query word against title and address and returns groups in a fixed order: open tabs, saved for later, stash (a record by its name, pages by their own title), bookmarks, history. Bookmarks and history are `null` until granted; they keep only http(s) and file addresses, and history skips pages shown above it. Also `highlight` (escapes, then marks), `flattenBookmarks`, `dayBucket`. |
   | `live-refresh.js` | `createRefreshScheduler`. Folds bursts of tab events into at most one re-render per 200ms. It waits while an action or a close animation runs, skips while the page is hidden, and catches up on `visibilitychange`. |
   | `config-io.js` | Export format v3. Import also accepts the original v1 file and the 2.x backup. |
 
 - `renderOpenTabs()` in `app.js` redraws the site cards and the header. It runs after actions and, via `live-refresh.js`, whenever `chrome.tabs.onCreated` / `onRemoved` / `onReplaced` / `onUpdated` (url, title or pinned) fire in any window. It keeps expanded "+N more" rows and keyboard focus, and leaves the "inbox zero" state on screen after the last card closes.
+- The search overlay (static markup in `index.html`, `hidden` until opened) is driven by the SEARCH section of `app.js`: it loads its sources on every open, asks for the optional `history` and `bookmarks` permissions only from the Turn on button, and never writes to bookmarks or history.
 - `extension/app.js` renders the page and handles every `data-action` click through document-level event delegation. Close and stash actions run one at a time (`exclusive()`), and an action that closed nothing leaves the current undo toast alone. The actions are:
   - site cards: `close-domain-tabs`, `collect-domain-tabs`, `dedup-keep-one`;
   - header: `dedup-all`, `collect-all-tabs`, `close-all-open-tabs`;
@@ -66,7 +71,8 @@ Manual testing: load `extension/` unpacked. Refresh the new tab after page chang
   - toast: `undo-last`.
 - `extension/background.js` only keeps the toolbar badge (tab count) up to date.
 - `tests/integration/static-contract.test.js` guards these invariants:
-  - permissions are exactly `tabs, storage, favicon`, and the manifest `key` is unchanged (it fixes the extension ID, so users keep their storage);
+  - permissions are exactly `tabs, storage, favicon`, optional permissions exactly `history, bookmarks`, and the manifest `key` is unchanged (it fixes the extension ID, so users keep their storage);
+  - `app.js` requests permissions in one place and never calls a bookmarks or history write API;
   - there are no external resources and no inline handlers;
   - `app.js` calls `chrome.tabs.remove` only in `closeTabOutDupes`;
   - `app.js` never names the legacy `tabGroups` key.

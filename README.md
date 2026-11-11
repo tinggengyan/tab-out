@@ -33,6 +33,7 @@ The agent will walk you through it. Takes about 1 minute.
 - **Duplicate detection** marks repeated pages with `(2x)`; pinned tabs are never closed
 - **Localhost grouping** shows port numbers so you can tell your dev servers apart
 - **Click any tab to jump to it**, even in another window
+- **Search** open tabs, saved for later and stashed pages with the Search button or `/`; turn on bookmarks and history with one click (optional permissions, read only, nothing leaves your device)
 - **Swoosh + confetti** when tabs close
 
 ---
@@ -64,7 +65,7 @@ The extension has no runtime dependencies and no build step. Node.js (22+, `.nvm
 nvm use
 npm test            # unit + static contract tests (node --test)
 npm run check       # syntax check of every .js/.mjs file
-npm run e2e:home    # home guard in headless Chrome for Testing, zh-CN and en
+npm run e2e:home    # home guard in headless Chrome (zh-CN and en) + search with bookmarks/history granted
 npm run package     # dist/tab-out-3.0.0-store.zip
 ```
 
@@ -73,7 +74,7 @@ npm run package     # dist/tab-out-3.0.0-store.zip
 The home guard is the product's floor. Every change must keep the following true:
 
 - the first card sits at or above 100px;
-- the first screen has at most 30 visible controls;
+- the first screen has at most 31 visible controls (30 plus the search button);
 - card buttons stay on one row;
 - the page makes no network requests;
 - close, stash and dedupe each take one click and can be undone.
