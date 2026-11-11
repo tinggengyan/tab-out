@@ -1,0 +1,19 @@
+docs/ai-tasks/2026-11-11-soul-rebuild/implementation.md
+  s_40573e4cdd9248::t_dd9de0c7796fe8 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "8dc2f590708508f4d3304682673468d3c9401d8b",
+  "prompts": {},
+  "sessions": {
+    "s_40573e4cdd9248": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_40573e4cdd9248",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
