@@ -1,0 +1,21 @@
+extension/lib/search.js
+  s_e9fb6cf820c322::t_5a4d6a38de34d5 1-117
+tests/unit/search.test.js
+  s_e9fb6cf820c322::t_ca74e5a181f1e8 1-169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "e0f41d5cb7aa4ddf98b9c9f9e2a2ef881b231b36",
+  "prompts": {},
+  "sessions": {
+    "s_e9fb6cf820c322": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_e9fb6cf820c322",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
