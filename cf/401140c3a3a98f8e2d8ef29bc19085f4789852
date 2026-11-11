@@ -1,0 +1,25 @@
+extension/app.js
+  s_5c7f863164f06f::t_45c48c3226d368 2197,2202-2205,2219-2222,2234,2240-2243
+tests/integration/static-contract.test.js
+  s_5c7f863164f06f::t_6a6be9495337c5 109-113
+tools/chrome-home-e2e.mjs
+  s_5c7f863164f06f::t_b4f7a4fd422405 360,389-390,400-410,427-430,435-437
+tools/chrome-search-e2e.mjs
+  s_5c7f863164f06f::t_01d2ecb2ce725b 49,53-60,101,103,105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "cf401140c3a3a98f8e2d8ef29bc19085f4789852",
+  "prompts": {},
+  "sessions": {
+    "s_5c7f863164f06f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_5c7f863164f06f",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
