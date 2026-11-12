@@ -1,0 +1,19 @@
+docs/ai-tasks/2026-11-12-search/implementation.md
+  s_1a4c319b53bda9::t_4c0290bc07f54e 84,86,107,110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "b9b44cbc413b6b05c36e5955c42753fefcb127e8",
+  "prompts": {},
+  "sessions": {
+    "s_1a4c319b53bda9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_1a4c319b53bda9",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
