@@ -2031,6 +2031,23 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 .search-grant-btn:hover { background: rgba(90, 122, 98, 0.16); }
 
+/* Once on, the same card is quieter: it only offers to turn bookmarks and history off. */
+.search-grant.is-on {
+  border-style: solid;
+  border-color: var(--warm-gray);
+  background: transparent;
+}
+
+.search-grant.is-on .search-grant-icon { color: var(--muted); }
+
+.search-grant.is-on .search-grant-btn {
+  border-color: var(--warm-gray);
+  background: transparent;
+  color: var(--muted);
+}
+
+.search-grant.is-on .search-grant-btn:hover { background: rgba(26, 22, 19, 0.05); color: var(--ink); }
+
 .search-foot {
   display: flex;
   gap: 16px;

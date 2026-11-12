@@ -63,7 +63,7 @@ Manual testing: load `extension/` unpacked. Refresh the new tab after page chang
   | `config-io.js` | Export format v3. Import also accepts the original v1 file and the 2.x backup. |
 
 - `renderOpenTabs()` in `app.js` redraws the site cards and the header. It runs after actions and, via `live-refresh.js`, whenever `chrome.tabs.onCreated` / `onRemoved` / `onReplaced` / `onUpdated` (url, title or pinned) fire in any window. It keeps expanded "+N more" rows and keyboard focus, and leaves the "inbox zero" state on screen after the last card closes.
-- The search overlay (static markup in `index.html`, `hidden` until opened) is driven by the SEARCH section of `app.js`: it loads its sources on every open, asks for the optional `history` and `bookmarks` permissions only from the Turn on button, and never writes to bookmarks or history.
+- The search overlay (static markup in `index.html`, `hidden` until opened) is driven by the SEARCH section of `app.js`: it loads its sources on every open, asks for the optional `history` and `bookmarks` permissions only from the Turn on button, gives them back from Turn off (Chrome has no switch for optional API permissions), and never writes to bookmarks or history.
 - `extension/app.js` renders the page and handles every `data-action` click through document-level event delegation. Close and stash actions run one at a time (`exclusive()`), and an action that closed nothing leaves the current undo toast alone. The actions are:
   - site cards: `close-domain-tabs`, `collect-domain-tabs`, `dedup-keep-one`;
   - header: `dedup-all`, `collect-all-tabs`, `close-all-open-tabs`;
@@ -72,7 +72,7 @@ Manual testing: load `extension/` unpacked. Refresh the new tab after page chang
 - `extension/background.js` only keeps the toolbar badge (tab count) up to date.
 - `tests/integration/static-contract.test.js` guards these invariants:
   - permissions are exactly `tabs, storage, favicon`, optional permissions exactly `history, bookmarks`, and the manifest `key` is unchanged (it fixes the extension ID, so users keep their storage);
-  - `app.js` requests permissions in one place and never calls a bookmarks or history write API;
+  - `app.js` requests and removes permissions in one place each and never calls a bookmarks or history write API;
   - there are no external resources and no inline handlers;
   - `app.js` calls `chrome.tabs.remove` only in `closeTabOutDupes`;
   - `app.js` never names the legacy `tabGroups` key.

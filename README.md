@@ -33,7 +33,7 @@ The agent will walk you through it. Takes about 1 minute.
 - **Duplicate detection** marks repeated pages with `(2x)`; pinned tabs are never closed
 - **Localhost grouping** shows port numbers so you can tell your dev servers apart
 - **Click any tab to jump to it**, even in another window
-- **Search** open tabs, saved for later and stashed pages with the Search button or `/`; turn on bookmarks and history with one click (optional permissions, read only, nothing leaves your device)
+- **Search** open tabs, saved for later and stashed pages with the Search button or `/`; turn on bookmarks and history with one click, and off again from the same panel (optional permissions, read only, nothing leaves your device)
 - **Swoosh + confetti** when tabs close
 
 ---

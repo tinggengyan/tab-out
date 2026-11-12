@@ -114,7 +114,11 @@ test('search reads bookmarks and history but never changes them', () => {
   const app = read('app.js');
   const requests = [...app.matchAll(/chrome\.permissions\.request\(/g)].length;
   assert.equal(requests, 1, 'permissions are requested in one place, when the user turns on bookmarks and history');
+  // Chrome has no switch for optional API permissions, so the overlay gives them back itself (owner decision, 2026-11-13).
+  const removals = [...app.matchAll(/chrome\.permissions\.remove\(([^)]*)\)/g)].map(match => match[1]);
+  assert.deepEqual(removals, ['SEARCH_PERMISSIONS'], 'permissions are given back in one place, when the user turns them off');
   assert.match(app, /permissions: \['history', 'bookmarks'\]/);
+  assert.match(html, /<button[^>]+id="searchRevokeBtn"/);
 });
 
 test('the search overlay is static markup, hidden until opened, loaded after its helpers', () => {

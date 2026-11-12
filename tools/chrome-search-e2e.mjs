@@ -130,6 +130,48 @@ try {
   assert.ok(replaced, 'the dashboard tab now shows the history page');
   pass('6 Enter on a history result replaces this page');
 
+  // 7. Chrome has no switch for optional API permissions, so the overlay gives them back itself
+  const fresh = await connectPage(origin, dashboardUrl);
+  try {
+    await fresh.send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+    await fresh.waitFor(`document.getElementById('searchTrigger').getBoundingClientRect().width > 0`, 'dashboard rendered');
+    await fresh.click('#searchTrigger');
+    await fresh.waitFor(`!document.getElementById('searchGranted').hidden`, 'the overlay says bookmarks and history are on');
+    assert.equal(await fresh.evaluate(`document.getElementById('searchGrant').hidden`), true, 'no grant card while on');
+    await fresh.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+    await fresh.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9 });
+    assert.equal(await fresh.evaluate(`document.activeElement?.id`), 'searchRevokeBtn', 'Tab reaches Turn off');
+    await fresh.screenshot('search-turn-off');
+
+    // This copy has them as required permissions, so Chrome really refuses: the reason is shown
+    await fresh.click('#searchRevokeBtn');
+    await fresh.waitFor(`!document.getElementById('searchRevokeError').hidden`, 'a refusal is explained');
+    assert.match(await fresh.evaluate(`document.getElementById('searchRevokeError').textContent`), /required/i);
+    assert.equal(await fresh.evaluate(`document.getElementById('searchGranted').hidden`), false, 'still on after a refusal');
+    assert.equal(await fresh.evaluate(`document.activeElement?.id`), 'searchInput', 'the keyboard goes back to the box');
+
+    // When Chrome agrees, the overlay drops bookmarks and history at once and offers Turn on again
+    await fresh.evaluate(`(() => {
+      let granted = true;
+      globalThis.__removed = [];
+      Object.defineProperty(chrome.permissions, 'remove', { configurable: true, writable: true,
+        value: async permissions => { __removed.push(permissions); granted = false; return true; } });
+      Object.defineProperty(chrome.permissions, 'contains', { configurable: true, writable: true, value: async () => granted });
+    })()`);
+    await fresh.click('#searchRevokeBtn');
+    await fresh.waitFor(`!document.getElementById('searchGrant').hidden`, 'Turn on is offered again');
+    assert.deepEqual(await fresh.evaluate(`__removed`), [{ permissions: ['history', 'bookmarks'] }]);
+    assert.equal(await fresh.evaluate(`document.getElementById('searchGranted').hidden`), true);
+    assert.equal(await fresh.evaluate(`document.activeElement?.id`), 'searchInput', 'the keyboard goes back to the box');
+    await fresh.send('Input.insertText', { text: 'quokka' });
+    await fresh.waitFor(`document.querySelector('[data-search-group]') !== null`, 'results');
+    assert.deepEqual(await fresh.evaluate(`[...document.querySelectorAll('#searchResults [data-search-group]')].map(group => group.dataset.searchGroup)`),
+      ['tabs'], 'bookmarks and history are gone without reopening');
+    pass('7 Turn off gives bookmarks and history back, and explains a refusal');
+  } finally {
+    fresh.close();
+  }
+
   process.stdout.write(`PASS search granted [${locale}]\n`);
 } finally {
   page.close();

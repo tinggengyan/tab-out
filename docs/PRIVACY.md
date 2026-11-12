@@ -4,7 +4,7 @@ Last updated: 2026-11-12 (version 3.0.0)
 
 Tab Out replaces Chrome's new tab page with a view of your open tabs grouped by site. It reads your open tabs (titles and addresses) only to show them, close them, stash them and reopen them when you ask.
 
-**Search.** Searching looks through your open tabs, saved-for-later items and stashed groups on this device. If you click Turn on in the search panel, Chrome asks whether Tab Out may also read your bookmarks and browsing history; Tab Out then reads them on this device only while you search, never changes them, and never stores or sends them anywhere.
+**Search.** Searching looks through your open tabs, saved-for-later items and stashed groups on this device. If you click Turn on in the search panel, Chrome asks whether Tab Out may also read your bookmarks and browsing history; Tab Out then reads them on this device only while you search, never changes them, and never stores or sends them anywhere. Turn off, in the same panel, gives both permissions back to Chrome.
 
 **What is stored, and where.** Saved-for-later items, stashed tab groups, and your shortcuts are kept in `chrome.storage.local` on this device. Nothing is synced or uploaded by Tab Out.
 

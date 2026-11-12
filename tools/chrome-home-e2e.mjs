@@ -514,6 +514,7 @@ try {
   await click('#searchTrigger');
   await waitFor(`!document.getElementById('searchGrant').hidden`, 'sources loaded');
   assert.equal(await evaluate(`document.getElementById('searchGrantError').hidden`), true, 'the next opening starts without the old error');
+  assert.equal(await evaluate(`document.getElementById('searchGranted').hidden`), true, 'nothing to turn off before it is turned on');
   await key('Escape', 'Escape', 27);
   await waitFor(`document.getElementById('searchOverlay').hidden`, 'esc closes the overlay');
   const outside = requests.filter(request => !/^(chrome-extension|data):/.test(request));

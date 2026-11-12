@@ -1910,8 +1910,10 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) live
 
 /* ----------------------------------------------------------------
    SEARCH — one overlay over open tabs, saved for later and the stash,
-   plus bookmarks and history once the user turns them on (optional
-   permissions, read only). Matching and grouping: lib/search.js.
+   plus bookmarks and history while the user has them turned on (optional
+   permissions, read only). Chrome has no switch for optional API
+   permissions, so Turn off here gives them back. Matching and grouping:
+   lib/search.js.
    ---------------------------------------------------------------- */
 
 const SEARCH_PERMISSIONS = { permissions: ['history', 'bookmarks'] };
@@ -1944,6 +1946,9 @@ function localizeSearch() {
   searchEl('searchGrantTitle').textContent = t('search.grantTitle');
   searchEl('searchGrantText').textContent = t('search.grantText');
   searchEl('searchGrantBtn').textContent = t('search.grantBtn');
+  searchEl('searchGrantedTitle').textContent = t('search.grantedTitle');
+  searchEl('searchGrantedText').textContent = t('search.grantedText');
+  searchEl('searchRevokeBtn').textContent = t('search.revokeBtn');
 }
 
 async function loadGrantedSources() {
@@ -2079,6 +2084,8 @@ function renderSearch() {
   });
   input.setAttribute('aria-expanded', String(search.rows.length > 0));
   searchEl('searchGrant').hidden = !search.loaded || search.granted;
+  // Turn off waits on the empty box, where the grant card would be, so it never sits among results.
+  searchEl('searchGranted').hidden = !search.loaded || !search.granted || tokens.length > 0;
   searchEl('searchFoot').innerHTML = `<span><kbd>↑</kbd><kbd>↓</kbd> ${escapeHtml(t('search.keySelect'))}</span>`
     + `<span><kbd>↵</kbd> ${escapeHtml(t('search.keyOpen'))}</span>`
     + `<span><kbd>esc</kbd> ${escapeHtml(t('search.keyClose'))}</span>`
@@ -2111,6 +2118,7 @@ async function openSearch() {
   const input = searchEl('searchInput');
   input.value = '';
   searchEl('searchGrantError').hidden = true;
+  searchEl('searchRevokeError').hidden = true;
   searchEl('searchOverlay').hidden = false;
   input.focus();
   renderSearch();
@@ -2234,9 +2242,9 @@ document.addEventListener('keydown', e => {
     e.stopPropagation();
     closeSearch();
   } else if (e.key === 'Tab') {
-    // Keep the keyboard inside the dialog: the input and, when shown, the grant button.
+    // Keep the keyboard inside the dialog: the input and, when shown, Turn on or Turn off.
     e.preventDefault();
-    const stops = [searchEl('searchInput'), searchEl('searchGrantBtn')].filter(el => el.offsetParent !== null);
+    const stops = [searchEl('searchInput'), searchEl('searchGrantBtn'), searchEl('searchRevokeBtn')].filter(el => el.offsetParent !== null);
     const at = stops.indexOf(document.activeElement);
     stops[(at + (e.shiftKey ? -1 : 1) + stops.length) % stops.length]?.focus();
   }
@@ -2251,7 +2259,7 @@ searchEl('searchOverlay').addEventListener('click', e => {
   searchPressedOutside = false;
 });
 
-// A click anywhere in the panel but the box and the grant button keeps the keyboard in the box.
+// A click anywhere in the panel but the box and its buttons keeps the keyboard in the box.
 searchEl('searchPanel').addEventListener('mousedown', e => {
   if (!e.target.closest('input, button')) e.preventDefault();
 });
@@ -2287,6 +2295,28 @@ searchEl('searchGrantBtn').addEventListener('click', async () => {
     }
     renderSearch();
     refreshSearchHistory();
+  }
+  searchEl('searchInput').focus();
+});
+
+searchEl('searchRevokeBtn').addEventListener('click', async () => {
+  const error = searchEl('searchRevokeError');
+  error.hidden = true;
+  let removed = false;
+  try {
+    removed = await chrome.permissions.remove(SEARCH_PERMISSIONS);
+  } catch (err) {
+    console.warn('[tab-out] Permission removal failed:', err);
+    error.textContent = t('search.revokeFailed', { reason: String(err?.message || err).replace(/[.。]\s*$/, '') });
+    error.hidden = false;
+  }
+  if (!search.open) return;
+  if (removed) {
+    search.granted = false;
+    search.sources.bookmarks = null;
+    search.sources.history = null;
+    search.recentHistory = [];
+    renderSearch();
   }
   searchEl('searchInput').focus();
 });
