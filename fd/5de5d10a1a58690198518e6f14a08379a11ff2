@@ -1,0 +1,43 @@
+CHANGELOG.md
+  s_748be2aca77e80::t_98d1db1465e2d4 12
+CLAUDE.md
+  s_748be2aca77e80::t_fa91f23afaaade 66,75
+README.md
+  s_748be2aca77e80::t_9bd3ac8f9fe1e5 36
+docs/PRIVACY.md
+  s_748be2aca77e80::t_a0c62ba392e32e 7
+docs/ai-tasks/2026-11-12-search/design.md
+  s_748be2aca77e80::t_5b570567d78ad0 12,74-78,120
+docs/ai-tasks/2026-11-12-search/implementation.md
+  s_748be2aca77e80::t_230d308c3a08bd 14,75,91-114,118,134-136
+extension/app.js
+  s_748be2aca77e80::t_24648639a25cd3 1913-1916,1949-1951,2087-2088,2121,2245,2247,2262,2302-2323
+extension/i18n.js
+  s_748be2aca77e80::t_31cd5bda1d0cf0 153-156,308-311
+extension/index.html
+  s_748be2aca77e80::t_53b2ef379530f3 178-183
+extension/style.css
+  s_748be2aca77e80::t_aafa589a7f2552 2034-2050
+tests/integration/static-contract.test.js
+  s_748be2aca77e80::t_94232fc3c56a36 117-119,121
+tools/chrome-home-e2e.mjs
+  s_748be2aca77e80::t_90ba1f68c82f61 517
+tools/chrome-search-e2e.mjs
+  s_748be2aca77e80::t_69df6956939d9b 133-174
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "fd5de5d10a1a58690198518e6f14a08379a11ff2",
+  "prompts": {},
+  "sessions": {
+    "s_748be2aca77e80": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_748be2aca77e80",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
