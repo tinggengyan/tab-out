@@ -1,0 +1,45 @@
+CHANGELOG.md
+  s_63ef16348c75ab::t_bc33fa09d134c8 7,12
+CLAUDE.md
+  s_63ef16348c75ab::t_43620e0f903e8f 42-43,73,75
+README.md
+  s_63ef16348c75ab::t_c841f602531213 36
+docs/ai-tasks/2026-11-11-soul-rebuild/design.md
+  s_63ef16348c75ab::t_c7fc0f393d6e26 53
+docs/ai-tasks/2026-11-12-search/design.md
+  s_63ef16348c75ab::t_7539be52234984 13,29,31-36,126
+docs/ai-tasks/2026-11-12-search/implementation.md
+  s_63ef16348c75ab::t_c5257db6aeda52 115-141,152-153,165
+extension/_locales/en/messages.json
+  s_63ef16348c75ab::t_1e50db80cacbd0 7-9
+extension/_locales/zh_CN/messages.json
+  s_63ef16348c75ab::t_cb6be7e0c9375e 7-9
+extension/app.js
+  s_63ef16348c75ab::t_184cc83c8eee0f 2329-2336
+extension/background.js
+  s_63ef16348c75ab::t_524eefc1f6ae7c 2,5-6,91-120
+extension/manifest.json
+  s_63ef16348c75ab::t_7945319a222dba 20-25
+tests/integration/static-contract.test.js
+  s_63ef16348c75ab::t_62294b76bd385e 18,27-42
+tools/chrome-home-e2e.mjs
+  s_63ef16348c75ab::t_f3de97e5994382 9,524-573
+tools/chrome-test-client.mjs
+  s_63ef16348c75ab::t_7dc8ffe3097e17 5-7,43-54,95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "560d2fd74d7cdd28d405086a490360a7d774bebb",
+  "prompts": {},
+  "sessions": {
+    "s_63ef16348c75ab": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_63ef16348c75ab",
+        "model": "unknown"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
