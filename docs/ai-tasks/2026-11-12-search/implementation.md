@@ -120,7 +120,7 @@
 - **一次性试验（`spike/search-shortcut`，已删除）：** 负责人在自己的 Chrome 里测了两种情况，都通过："测试一和测试二测试通过"。
   - 在普通网页上按快捷键：新开 Tab Out，打字进入搜索框；
   - 按 ⌘T 后光标在地址栏，再按快捷键：原标签页重新加载，打字进入搜索框。
-- **正式实现（`feat/search-shortcut` 分支，从 `main` 重做）：**
+- **正式实现：** 在 `feat/search-shortcut` 分支从 `main` 重做，按负责人决定快进合入本地 `main`，未推送。
   - manifest 新增命令 `open-search`（Mac ⇧⌘K，其他 Ctrl+Shift+K），名称在 `_locales` 里有中英文；
   - `background.js` 的 `openSearchFromShortcut(tab)`：当前标签页是 Tab Out 时原地加载 `index.html?search`，否则在右边新开；
   - `app.js` 启动时看到 `?search` 就立即打开搜索（不等首页渲染完，先按的键不会丢），并从地址里去掉它。
