@@ -17,6 +17,12 @@
   "chrome_url_overrides": {
     "newtab": "index.html"
   },
+  "commands": {
+    "open-search": {
+      "suggested_key": { "default": "Ctrl+Shift+K", "mac": "Command+Shift+K" },
+      "description": "__MSG_commandSearch__"
+    }
+  },
   "background": {
     "service_worker": "background.js"
   },

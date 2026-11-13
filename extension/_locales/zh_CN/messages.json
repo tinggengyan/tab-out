@@ -4,5 +4,8 @@
   },
   "appDescription": {
     "message": "标签页一目了然。"
+  },
+  "commandSearch": {
+    "message": "打开 Tab Out 搜索"
   }
 }

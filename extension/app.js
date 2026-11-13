@@ -2326,6 +2326,14 @@ searchEl('searchRevokeBtn').addEventListener('click', async () => {
    INITIALIZE
    ---------------------------------------------------------------- */
 initShortcuts();
+// The search shortcut (background.js) loads this page with ?search. Open search at once,
+// before the dashboard renders, so the first keystrokes land in the box; then drop the
+// parameter so a reload shows the plain page.
+if (new URLSearchParams(location.search).has('search')) {
+  history.replaceState(null, '', location.pathname);
+  localizeSearch();
+  openSearch();
+}
 // Copy the owner's v2.3 projects into stash records once, then render.
 migrateLegacy(chrome.storage.local)
   .catch(err => console.warn('[tab-out] Migration skipped:', err))

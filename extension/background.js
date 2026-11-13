@@ -1,8 +1,9 @@
 /**
- * background.js — Service Worker for Badge Updates
+ * background.js — Service Worker for Badge Updates and the Search Shortcut
  *
  * Chrome's "always-on" background script for Tab Out.
- * Its only job: keep the toolbar badge showing the current open tab count.
+ * It keeps the toolbar badge showing the current open tab count, and answers
+ * the search shortcut (see openSearchFromShortcut below).
  *
  * Since we no longer have a server, we query chrome.tabs directly.
  * The badge counts real web tabs (skipping chrome:// and extension pages).
@@ -85,6 +86,36 @@ chrome.tabs.onRemoved.addListener(() => {
 // Update badge when a tab's URL changes (e.g. navigating to/from chrome://)
 chrome.tabs.onUpdated.addListener(() => {
   updateBadge();
+});
+
+// ─── Search shortcut ─────────────────────────────────────────────────────────
+
+/**
+ * openSearchFromShortcut(tab)
+ *
+ * On a fresh new tab the cursor sits in the address bar, so the page never hears
+ * "/". The manifest command reaches us wherever the cursor is. A page loaded by
+ * the extension gets the keyboard, so Tab Out is loaded with ?search: in place of
+ * a tab that already shows Tab Out (a new tab, typically), otherwise next to the
+ * current tab. index.html opens search and drops ?search from the address.
+ */
+async function openSearchFromShortcut(tab) {
+  const page = chrome.runtime.getURL('index.html');
+  const url = `${page}?search`;
+  const address = tab?.url || '';
+  try {
+    if (tab && (address === 'chrome://newtab/' || address.startsWith(page))) {
+      await chrome.tabs.update(tab.id, { url });
+    } else {
+      await chrome.tabs.create(tab ? { url, index: tab.index + 1, windowId: tab.windowId } : { url });
+    }
+  } catch (err) {
+    console.warn('[tab-out] Search shortcut could not open Tab Out:', err);
+  }
+}
+
+chrome.commands.onCommand.addListener((command, tab) => {
+  if (command === 'open-search') openSearchFromShortcut(tab);
 });
 
 // ─── Initial run ─────────────────────────────────────────────────────────────

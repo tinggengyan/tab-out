@@ -4,5 +4,8 @@
   },
   "appDescription": {
     "message": "Keep tabs on your tabs."
+  },
+  "commandSearch": {
+    "message": "Open Tab Out search"
   }
 }

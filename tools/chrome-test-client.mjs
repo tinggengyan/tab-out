@@ -2,11 +2,9 @@ import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-export async function connectPage(origin, url) {
-  const response = await fetch(`${origin}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
-  assert.equal(response.ok, true, 'could not open test target');
-  const target = await response.json();
-  const socket = new WebSocket(target.webSocketDebuggerUrl);
+// Attaches to a target that already exists: a page the extension opened itself, or its service worker.
+export async function attachTarget(webSocketDebuggerUrl) {
+  const socket = new WebSocket(webSocketDebuggerUrl);
   const pending = new Map();
   const events = new Map();
   let sequence = 0;
@@ -42,6 +40,18 @@ export async function connectPage(origin, url) {
     }
     throw new Error(`Timed out: ${description}`);
   };
+  return { send, evaluate, waitFor,
+    on(method, handler) { events.set(method, [...(events.get(method) || []), handler]); },
+    close() { for (const request of pending.values()) { clearTimeout(request.timer); request.reject(new Error('Test target closed')); } pending.clear(); socket.close(); },
+  };
+}
+
+export async function connectPage(origin, url) {
+  const response = await fetch(`${origin}/json/new?${encodeURIComponent(url)}`, { method: 'PUT' });
+  assert.equal(response.ok, true, 'could not open test target');
+  const target = await response.json();
+  const client = await attachTarget(target.webSocketDebuggerUrl);
+  const { send, evaluate, waitFor } = client;
   const click = async selector => {
     await send('Page.bringToFront');
     await waitFor(`(() => { const element = document.querySelector(${JSON.stringify(selector)}); return element && !element.disabled && element.getBoundingClientRect().height > 0; })()`, `clickable ${selector}`);
@@ -82,8 +92,5 @@ export async function connectPage(origin, url) {
     await send('Emulation.setLocaleOverride', { locale: process.env.TAB_OUT_TEST_LOCALE });
     await send('Page.reload');
   }
-  return { send, evaluate, waitFor, click, fill, screenshot,
-    on(method, handler) { events.set(method, [...(events.get(method) || []), handler]); },
-    close() { for (const request of pending.values()) { clearTimeout(request.timer); request.reject(new Error('Test target closed')); } pending.clear(); socket.close(); },
-  };
+  return { ...client, click, fill, screenshot };
 }

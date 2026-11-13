@@ -15,13 +15,29 @@ test('manifest keeps the original key and only the three core permissions', () =
   assert.deepEqual(manifest.permissions, ['tabs', 'storage', 'favicon']);
   // Search asks for these only when the user turns it on (owner decision, 2026-11-12).
   assert.deepEqual(manifest.optional_permissions, ['history', 'bookmarks']);
-  for (const field of ['host_permissions', 'optional_host_permissions', 'commands', 'omnibox']) {
+  for (const field of ['host_permissions', 'optional_host_permissions', 'omnibox']) {
     assert.equal(manifest[field], undefined, `${field} must not be declared`);
   }
   assert.equal(manifest.version, '3.0.0');
   // The public key from the original fork (40579ec). It fixes the extension ID, so users keep
   // their storage. Inlined so the test also works in a shallow CI checkout.
   assert.equal(manifest.key, ORIGINAL_KEY);
+});
+
+test('one browser-level shortcut opens search, even from a new tab whose cursor is in the address bar', () => {
+  // Owner decision, 2026-11-13. A page cannot hear keys while the address bar has them, so this
+  // is a manifest command. It needs no permission; users can change the key in chrome://extensions/shortcuts.
+  assert.deepEqual(manifest.commands, {
+    'open-search': {
+      suggested_key: { default: 'Ctrl+Shift+K', mac: 'Command+Shift+K' },
+      description: '__MSG_commandSearch__',
+    },
+  });
+  for (const locale of ['en', 'zh_CN']) {
+    const messages = JSON.parse(read(`_locales/${locale}/messages.json`));
+    assert.ok(messages.commandSearch?.message, `_locales/${locale} names the search shortcut`);
+  }
+  assert.match(read('background.js'), /chrome\.commands\.onCommand\.addListener\(/);
 });
 
 test('every local script and stylesheet referenced by the page exists', () => {

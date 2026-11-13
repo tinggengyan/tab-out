@@ -6,7 +6,7 @@
    Each numbered check matches design.md §5. */
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { connectPage } from './chrome-test-client.mjs';
+import { attachTarget, connectPage } from './chrome-test-client.mjs';
 
 const origin = process.env.TAB_OUT_CDP_ORIGIN;
 const extensionId = process.env.TAB_OUT_EXTENSION_ID;
@@ -520,6 +520,56 @@ try {
   const outside = requests.filter(request => !/^(chrome-extension|data):/.test(request));
   assert.deepEqual(outside, [], 'search loaded nothing from the network');
   pass('16 search finds open tabs, saved for later and the stash; Enter acts on the result');
+
+  // 17. the search shortcut (a manifest command, so it works while the cursor is in the address
+  // bar) opens search with the cursor in the box: next to a web page, or in place of a new tab.
+  // Chrome cannot press a command for a test, so this calls the function the command calls.
+  const targets = async () => (await fetch(`${origin}/json/list`)).json();
+  let worker = null;
+  for (let attempt = 0; attempt < 50 && !worker; attempt++) {
+    worker = (await targets()).find(target => target.type === 'service_worker' && target.url === `chrome-extension://${extensionId}/background.js`);
+    // A tab event wakes a service worker that went idle.
+    if (!worker) { await evaluate(`chrome.tabs.create({ url: 'about:blank', active: false }).then(tab => chrome.tabs.remove(tab.id))`); await pause(100); }
+  }
+  assert.ok(worker, 'the service worker is running');
+  const background = await attachTarget(worker.webSocketDebuggerUrl);
+  async function searchOpenedBy(tab, isTarget) {
+    const before = new Set((await targets()).map(target => target.id));
+    await background.evaluate(`openSearchFromShortcut(${JSON.stringify(tab)})`);
+    let target = null;
+    for (let attempt = 0; attempt < 60 && !target; attempt++) {
+      target = (await targets()).find(item => item.type === 'page' && item.url.startsWith(dashboardUrl) && isTarget(item, before));
+      if (!target) await pause(100);
+    }
+    assert.ok(target, 'the shortcut opened Tab Out');
+    const opened = await attachTarget(target.webSocketDebuggerUrl);
+    await opened.waitFor(`!document.getElementById('searchOverlay').hidden && document.activeElement?.id === 'searchInput'`, 'search open with the cursor in the box');
+    await opened.waitFor(`document.querySelectorAll('#openTabsMissions .mission-card').length > 0`, 'the dashboard rendered behind it');
+    assert.equal(await opened.evaluate(`document.activeElement?.id`), 'searchInput', 'the dashboard rendering behind search keeps the cursor in the box');
+    assert.equal(await opened.evaluate(`location.search`), '', 'reloading the page does not open search again');
+    const current = await opened.evaluate(`chrome.tabs.getCurrent().then(({ id, index, windowId }) => ({ id, index, windowId }))`);
+    opened.close();
+    return current;
+  }
+  try {
+    const web = await evaluate(`chrome.tabs.query({}).then(tabs => tabs.find(tab => tab.url.startsWith('http://')))`);
+    const besideWeb = await searchOpenedBy(web, (target, before) => !before.has(target.id));
+    assert.deepEqual({ index: besideWeb.index, windowId: besideWeb.windowId }, { index: web.index + 1, windowId: web.windowId }, 'opened next to the web page');
+    await evaluate(`chrome.tabs.remove(${besideWeb.id})`);
+
+    const newTabId = await evaluate(`chrome.tabs.create({ url: 'chrome://newtab/' }).then(tab => tab.id)`);
+    await waitFor(`chrome.tabs.get(${newTabId}).then(tab => tab.status === 'complete' && tab.url === 'chrome://newtab/')`, 'a new tab showing Tab Out');
+    const newTab = await evaluate(`chrome.tabs.get(${newTabId})`);
+    const tabCount = await evaluate(`chrome.tabs.query({}).then(tabs => tabs.length)`);
+    const newTabTarget = (await targets()).find(target => target.type === 'page' && target.url === 'chrome://newtab/');
+    const inPlace = await searchOpenedBy(newTab, target => target.id === newTabTarget.id);
+    assert.equal(inPlace.id, newTabId, 'the new tab itself shows search');
+    assert.equal(await evaluate(`chrome.tabs.query({}).then(tabs => tabs.length)`), tabCount, 'no extra tab is left behind');
+    await evaluate(`chrome.tabs.remove(${newTabId})`);
+  } finally {
+    background.close();
+  }
+  pass('17 the search shortcut opens search with the cursor in the box, next to a web page or in place of a new tab');
 
   process.stdout.write(`PASS home guard [${locale}]\n`);
 } finally {
