@@ -1,12 +1,14 @@
 # Changelog
 
-## 3.0.0 — 2026-11-11
+## 3.0.0 — 2026-11-24
 
 Back to the soul: open tabs grouped by site, closed, deduplicated or stashed in one click.
 
 - Rebuilt from the original domain-grouped dashboard (`40579ec`). The 2.x workbench is archived at tag `v2.3-workbench-archive`; projects, snapshots, trash, the 2.x unified search (replaced by the simpler search below), browsing memory and AI, rules and templates, licensing, telemetry, the 2.x keyboard commands and the omnibox keyword are gone.
 - Every site card has one row of buttons: close all, stash, and close duplicates (only when there are any). The header adds close all duplicates, stash all and close all, across every window. Row buttons appear on hover or keyboard focus.
 - The page follows tabs in every window while it is open: pages opened, retitled or closed elsewhere show up without a reload. A Tab Out tab in the background catches up when you switch to it.
+- Opening a new tab switches back to the existing Tab Out dashboard, even across windows. The browser search shortcut reuses the same dashboard.
+- The attribution stays centered at the bottom of the window while the dashboard scrolls.
 - Closing, deduplicating, stashing and saving for later can be undone for 30 seconds; pages return to their original window and position. Pinned tabs are never closed or stashed. "Close all" asks once, the first time.
 - The right column shows Saved for later on top and stashed groups below it, one compact row each; a group's Restore all and Delete appear on hover or keyboard focus, so a long stash never pushes Saved for later off screen. "Restore all" reopens the pages that are not already open and removes the group; a single page can be restored on its own.
 - Search (the Search button next to Open tabs, or `/`) looks through open tabs, saved for later and stashed groups in one overlay. Enter switches to an open tab, opens a saved or stashed page (taking it out of its group), or shows a stashed group. Bookmarks and history join after one click on Turn on, which asks Chrome for the optional `history` and `bookmarks` permissions; Tab Out only reads them and nothing leaves the device. Turn off, in the same place, gives both permissions back, since Chrome itself has no switch for them. A browser-level shortcut (⇧⌘K on Mac, Ctrl+Shift+K elsewhere; changeable in `chrome://extensions/shortcuts`) opens search from any page, including a new tab whose cursor is still in the address bar, where `/` cannot reach the page.

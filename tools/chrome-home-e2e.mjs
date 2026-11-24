@@ -521,9 +521,8 @@ try {
   assert.deepEqual(outside, [], 'search loaded nothing from the network');
   pass('16 search finds open tabs, saved for later and the stash; Enter acts on the result');
 
-  // 17. the search shortcut (a manifest command, so it works while the cursor is in the address
-  // bar) opens search with the cursor in the box: next to a web page, or in place of a new tab.
-  // Chrome cannot press a command for a test, so this calls the function the command calls.
+  // 17. The browser search shortcut reuses the dashboard, with focus in the search box.
+  // Chrome cannot press a command for a test, so call the same handler.
   const targets = async () => (await fetch(`${origin}/json/list`)).json();
   let worker = null;
   for (let attempt = 0; attempt < 50 && !worker; attempt++) {
@@ -533,43 +532,70 @@ try {
   }
   assert.ok(worker, 'the service worker is running');
   const background = await attachTarget(worker.webSocketDebuggerUrl);
-  async function searchOpenedBy(tab, isTarget) {
-    const before = new Set((await targets()).map(target => target.id));
-    await background.evaluate(`openSearchFromShortcut(${JSON.stringify(tab)})`);
-    let target = null;
-    for (let attempt = 0; attempt < 60 && !target; attempt++) {
-      target = (await targets()).find(item => item.type === 'page' && item.url.startsWith(dashboardUrl) && isTarget(item, before));
-      if (!target) await pause(100);
-    }
-    assert.ok(target, 'the shortcut opened Tab Out');
-    const opened = await attachTarget(target.webSocketDebuggerUrl);
-    await opened.waitFor(`!document.getElementById('searchOverlay').hidden && document.activeElement?.id === 'searchInput'`, 'search open with the cursor in the box');
-    await opened.waitFor(`document.querySelectorAll('#openTabsMissions .mission-card').length > 0`, 'the dashboard rendered behind it');
-    assert.equal(await opened.evaluate(`document.activeElement?.id`), 'searchInput', 'the dashboard rendering behind search keeps the cursor in the box');
-    assert.equal(await opened.evaluate(`location.search`), '', 'reloading the page does not open search again');
-    const current = await opened.evaluate(`chrome.tabs.getCurrent().then(({ id, index, windowId }) => ({ id, index, windowId }))`);
-    opened.close();
-    return current;
-  }
+  const searchFocused = `document.querySelector('#searchOverlay:not([hidden])') && document.activeElement?.id === 'searchInput'`;
+  const tabGone = id => `chrome.tabs.get(${id}).then(() => false, () => true)`;
   try {
-    const web = await evaluate(`chrome.tabs.query({}).then(tabs => tabs.find(tab => tab.url.startsWith('http://')))`);
-    const besideWeb = await searchOpenedBy(web, (target, before) => !before.has(target.id));
-    assert.deepEqual({ index: besideWeb.index, windowId: besideWeb.windowId }, { index: web.index + 1, windowId: web.windowId }, 'opened next to the web page');
-    await evaluate(`chrome.tabs.remove(${besideWeb.id})`);
+    const dashboard = await evaluate('chrome.tabs.getCurrent()');
+    const web = await evaluate(`chrome.tabs.query({ windowId: ${dashboard.windowId} }).then(tabs => tabs.find(tab => tab.url.startsWith('http://')))`);
+    assert.ok(web, 'a web tab in the dashboard window');
+    await evaluate(`chrome.tabs.update(${web.id}, { active: true })`);
+    const tabCount = await evaluate('chrome.tabs.query({}).then(tabs => tabs.length)');
+    await background.evaluate(`openSearchFromShortcut(${JSON.stringify(web)})`);
+    await waitFor(searchFocused, 'search open on the existing dashboard');
+    await waitFor(`document.querySelectorAll('#openTabsMissions .mission-card').length > 0`, 'dashboard rendered behind search');
+    assert.equal(await evaluate(searchFocused), true, 'rendering the dashboard keeps search focused');
+    assert.equal(await evaluate('location.search'), '', 'reloading does not reopen search');
+    assert.equal(await evaluate('chrome.tabs.getCurrent().then(tab => tab.active)'), true, 'the existing dashboard is active');
+    assert.equal(await evaluate('chrome.tabs.query({}).then(tabs => tabs.length)'), tabCount, 'search creates no extra tab');
+    pass('17 the browser shortcut opens search on the existing Tab Out tab');
 
-    const newTabId = await evaluate(`chrome.tabs.create({ url: 'chrome://newtab/' }).then(tab => tab.id)`);
-    await waitFor(`chrome.tabs.get(${newTabId}).then(tab => tab.status === 'complete' && tab.url === 'chrome://newtab/')`, 'a new tab showing Tab Out');
-    const newTab = await evaluate(`chrome.tabs.get(${newTabId})`);
-    const tabCount = await evaluate(`chrome.tabs.query({}).then(tabs => tabs.length)`);
-    const newTabTarget = (await targets()).find(target => target.type === 'page' && target.url === 'chrome://newtab/');
-    const inPlace = await searchOpenedBy(newTab, target => target.id === newTabTarget.id);
-    assert.equal(inPlace.id, newTabId, 'the new tab itself shows search');
-    assert.equal(await evaluate(`chrome.tabs.query({}).then(tabs => tabs.length)`), tabCount, 'no extra tab is left behind');
-    await evaluate(`chrome.tabs.remove(${newTabId})`);
+    // 18. New Tab reuses the page in the same window and across windows.
+    await page.fill('#searchInput', 'quokka');
+    await evaluate(`chrome.tabs.update(${web.id}, { active: true })`);
+    const duplicate = await evaluate(`chrome.tabs.create({ windowId: ${dashboard.windowId} }).then(tab => tab.id)`);
+    await waitFor(tabGone(duplicate), 'the extra New Tab in the same window is gone');
+    assert.equal(await evaluate('chrome.tabs.getCurrent().then(tab => tab.active)'), true);
+    assert.equal(await evaluate(`document.getElementById('searchInput').value`), 'quokka', 'reusing the dashboard does not reload it');
+
+    // Headless Chrome can report both windows focused at once. Observe the
+    // actual request to focus the dashboard's window as well as its active tab.
+    await background.evaluate(`(() => {
+      const updateWindow = chrome.windows.update.bind(chrome.windows);
+      globalThis.focusRequests = [];
+      chrome.windows.update = (id, changes) => {
+        if (changes.focused) focusRequests.push(id);
+        return updateWindow(id, changes);
+      };
+    })()`);
+    const otherWindow = await evaluate(`chrome.windows.create({ url: ${JSON.stringify(url('second-window', 'keep'))}, focused: true })`);
+    const otherTabId = otherWindow.tabs[0].id;
+    const extras = await evaluate(`Promise.all(Array.from({ length: 3 }, () => chrome.tabs.create({ windowId: ${otherWindow.id} }))).then(tabs => tabs.map(tab => tab.id))`);
+    await waitFor(`Promise.all([${extras.map(tabGone).join(',')}]).then(results => results.every(Boolean))`, 'all extra New Tabs in the other window are gone');
+    assert.ok(await background.evaluate(`focusRequests.includes(${dashboard.windowId})`), 'the dashboard window is brought to the front');
+    assert.equal(await evaluate('chrome.tabs.getCurrent().then(tab => tab.active)'), true, 'the dashboard remains active');
+    assert.equal(await evaluate(`chrome.tabs.get(${otherTabId}).then(tab => tab.windowId)`), otherWindow.id, 'the ordinary tab stays open');
+
+    const emptyWindow = await evaluate('chrome.windows.create({ focused: true })');
+    await waitFor(`chrome.tabs.query({ windowId: ${emptyWindow.id} }).then(tabs => tabs.length === 1 && tabs[0].url === 'about:blank')`, 'a new window stays open with a blank tab');
+
+    await background.evaluate(`chrome.tabs.remove(${dashboard.id})`);
+    const fresh = await background.evaluate(`chrome.tabs.create({ windowId: ${otherWindow.id} })`);
+    await background.waitFor(`chrome.tabs.get(${fresh.id}).then(tab => tab.status === 'complete' && tab.url === 'chrome://newtab/')`, 'a new dashboard can open after the previous one closes');
+    const current = await background.evaluate(`chrome.tabs.get(${fresh.id})`);
+    const freshTarget = (await targets()).find(target => target.type === 'page' && target.url === 'chrome://newtab/');
+    assert.ok(freshTarget, 'the new dashboard opened');
+    const freshPage = await attachTarget(freshTarget.webSocketDebuggerUrl);
+    try {
+      await background.evaluate(`openSearchFromShortcut(${JSON.stringify(current)})`);
+      await freshPage.waitFor(searchFocused, 'the browser shortcut works from a native New Tab');
+      assert.equal(await freshPage.evaluate('chrome.tabs.getCurrent().then(tab => tab.id)'), fresh.id, 'search stays in the same tab');
+    } finally {
+      freshPage.close();
+    }
+    pass('18 New Tab reuses Tab Out across windows and can reopen it after it closes');
   } finally {
     background.close();
   }
-  pass('17 the search shortcut opens search with the cursor in the box, next to a web page or in place of a new tab');
 
   process.stdout.write(`PASS home guard [${locale}]\n`);
 } finally {

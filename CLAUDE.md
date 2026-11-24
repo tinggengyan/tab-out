@@ -40,7 +40,8 @@ npm run package               # dist/tab-out-3.0.0-store.zip
 - pages opened or closed in another window appear without a reload (scenario 14, a regression guard rather than a §5 check);
 - with 12 stash records, every saved-for-later item is still on the first screen and stash rows stay compact (scenario 15);
 - search opens by button and `/`, finds open tabs, saved for later and the stash, and Enter acts on each kind of result, with no network requests (scenario 16);
-- the search shortcut opens Tab Out with search open and the cursor in the box, next to a web page or in place of a new tab (scenario 17; the test calls the service worker's `openSearchFromShortcut`, since Chrome cannot press a command for a test).
+- the search shortcut opens search with the cursor in the box on the existing dashboard (scenario 17; the test calls the service worker's `openSearchFromShortcut`, since Chrome cannot press a command for a test);
+- opening New Tab in the same or another window returns to the existing dashboard, and closing the dashboard lets a new one open (scenario 18).
 
 A third suite, `tools/chrome-search-e2e.mjs`, runs search with bookmarks and history granted. A headless browser cannot click Chrome's permission prompt, so the runner loads a copy of `extension/` whose optional permissions are made required (same key, same ID). The prompt itself is checked by hand.
 
@@ -70,7 +71,8 @@ Manual testing: load `extension/` unpacked. Refresh the new tab after page chang
   - header: `dedup-all`, `collect-all-tabs`, `close-all-open-tabs`;
   - right column: stash and save-for-later actions;
   - toast: `undo-last`.
-- `extension/background.js` keeps the toolbar badge (tab count) up to date and answers the search shortcut (manifest command `open-search`). The page cannot hear keys while the cursor is in the address bar, as on a fresh new tab, so the shortcut loads `index.html?search` (in place of a tab already showing Tab Out, otherwise next to the current tab); a page the extension loads gets the keyboard, and `app.js` opens search at once and drops `?search`.
+- `extension/background.js` keeps the toolbar badge up to date and reuses the Tab Out page across windows. The dashboard registers with the worker on load, so only a New Tab actually showing Tab Out triggers cleanup. The worker activates the existing page and removes extra dashboard tabs. If an extra is the last tab of a window, the worker leaves that window open with a blank tab.
+- The browser search command (`open-search`) loads `index.html?search` into the existing dashboard or opens it next to the current tab when needed. A page the extension loads gets the keyboard even if the command started in the address bar, and `app.js` opens search and drops `?search`.
 - `tests/integration/static-contract.test.js` guards these invariants:
   - permissions are exactly `tabs, storage, favicon`, optional permissions exactly `history, bookmarks`, the only command is `open-search`, and the manifest `key` is unchanged (it fixes the extension ID, so users keep their storage);
   - `app.js` requests and removes permissions in one place each and never calls a bookmarks or history write API;

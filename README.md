@@ -23,6 +23,7 @@ The agent will walk you through it. Takes about 1 minute.
 ## Features
 
 - **Every tab at a glance**, one card per site, across all windows
+- **One Tab Out page** across your Chrome windows. Opening another new tab returns to the dashboard you already have open.
 - **Always current**: tabs you open or close in another window show up without reloading
 - **Homepages group** pulls Gmail inbox, X home, YouTube, LinkedIn and GitHub homepages into one card
 - **One click per site**: close all, stash, close duplicates — one row of buttons on every card

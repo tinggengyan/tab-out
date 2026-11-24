@@ -1,9 +1,9 @@
 /**
- * background.js — Service Worker for Badge Updates and the Search Shortcut
+ * background.js — Service Worker for the Badge, Tab Out Home and Search
  *
  * Chrome's "always-on" background script for Tab Out.
- * It keeps the toolbar badge showing the current open tab count, and answers
- * the search shortcut (see openSearchFromShortcut below).
+ * It keeps the toolbar badge up to date, reuses the Tab Out page across windows,
+ * and answers the search shortcut.
  *
  * Since we no longer have a server, we query chrome.tabs directly.
  * The badge counts real web tabs (skipping chrome:// and extension pages).
@@ -88,30 +88,111 @@ chrome.tabs.onUpdated.addListener(() => {
   updateBadge();
 });
 
-// ─── Search shortcut ─────────────────────────────────────────────────────────
+// ─── Tab Out home ───────────────────────────────────────────────────────────
 
-/**
- * openSearchFromShortcut(tab)
- *
- * On a fresh new tab the cursor sits in the address bar, so the page never hears
- * "/". The manifest command reaches us wherever the cursor is. A page loaded by
- * the extension gets the keyboard, so Tab Out is loaded with ?search: in place of
- * a tab that already shows Tab Out (a new tab, typically), otherwise next to the
- * current tab. index.html opens search and drops ?search from the address.
- */
-async function openSearchFromShortcut(tab) {
-  const page = chrome.runtime.getURL('index.html');
-  const url = `${page}?search`;
-  const address = tab?.url || '';
-  try {
-    if (tab && (address === 'chrome://newtab/' || address.startsWith(page))) {
+const homePage = chrome.runtime.getURL('index.html');
+const newTabPage = 'chrome://newtab/';
+const homeTabIds = new Map();
+let homeOperations = Promise.resolve();
+
+function queueHomeOperation(operation) {
+  // A burst of new tabs and the search command can arrive at the same time.
+  homeOperations = homeOperations.then(operation).catch(err => {
+    console.warn('[tab-out] Could not switch to Tab Out:', err);
+  });
+  return homeOperations;
+}
+
+function isHomePage(url) {
+  return url?.split(/[?#]/, 1)[0] === homePage;
+}
+
+async function findHomeTabs(incognito) {
+  const [tabs, contexts] = await Promise.all([
+    chrome.tabs.query({}),
+    chrome.runtime.getContexts?.({ contextTypes: ['TAB'], frameIds: [0], incognito }),
+  ]);
+  // Chrome reports the New Tab override as chrome://newtab/ in the Tabs API.
+  // Confirm it hosts our extension page when extension contexts are available.
+  const overrideIds = new Set(contexts?.filter(context => isHomePage(context.documentUrl)).map(context => context.tabId));
+  const rememberedId = homeTabIds.get(incognito);
+  return tabs.filter(tab => {
+    const url = tab.pendingUrl || tab.url;
+    return tab.incognito === incognito &&
+      (isHomePage(url) ||
+        (url === newTabPage && (!contexts || tab.id === rememberedId || overrideIds.has(tab.id))));
+  });
+}
+
+async function focusHome(tab) {
+  await chrome.tabs.update(tab.id, { active: true });
+  await chrome.windows.update(tab.windowId, { focused: true });
+}
+
+async function reuseHome(source) {
+  const homes = await findHomeTabs(source.incognito);
+  const opened = homes.find(tab => tab.id === source.id);
+  if (!opened) return;
+
+  const existing = homes.filter(tab => tab.id !== source.id);
+  const keep = homes.find(tab => tab.id === homeTabIds.get(source.incognito)) ||
+    existing.find(tab => tab.pinned) || existing.find(tab => tab.status === 'complete') ||
+    existing[0] || opened;
+  homeTabIds.set(source.incognito, keep.id);
+  const extras = homes.filter(tab => tab.id !== keep.id);
+  if (extras.length === 0) return;
+
+  if (extras.some(tab => tab.active)) {
+    await focusHome(keep);
+  }
+  // Do this in sequence so closing several copies in a window always leaves
+  // its last tab in place.
+  for (const tab of extras) {
+    const selected = await chrome.tabs.get(keep.id);
+    const selectedUrl = selected.pendingUrl || selected.url;
+    if (selectedUrl !== newTabPage && !isHomePage(selectedUrl)) return;
+
+    const inWindow = await chrome.tabs.query({ windowId: tab.windowId });
+    const current = inWindow.find(item => item.id === tab.id);
+    const url = current?.pendingUrl || current?.url;
+    // A user can commit a web address while the new tab is still loading.
+    if (url !== newTabPage && !isHomePage(url)) continue;
+    if (inWindow.length === 1) {
+      // Closing its last tab would close the entire browser window.
+      await chrome.tabs.update(tab.id, { url: 'about:blank' });
+    } else {
+      await chrome.tabs.remove(tab.id);
+    }
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message?.type === 'tab-out-home-ready' && sender.frameId === 0 &&
+      sender.tab && isHomePage(sender.url)) {
+    queueHomeOperation(() => reuseHome(sender.tab));
+  }
+});
+
+// ─── Search shortcut ────────────────────────────────────────────────────────
+
+function openSearchFromShortcut(tab) {
+  return queueHomeOperation(async () => {
+    const url = `${homePage}?search`;
+    const incognito = tab?.incognito ?? false;
+    const homes = await findHomeTabs(incognito);
+    const home = homes.find(item => item.id === homeTabIds.get(incognito)) ||
+      homes.find(item => item.id === tab?.id) || homes[0];
+    if (home) {
+      // Navigation gives the page keyboard focus even from the native New Tab.
+      homeTabIds.set(incognito, home.id);
+      await chrome.tabs.update(home.id, { url, active: true });
+      await chrome.windows.update(home.windowId, { focused: true });
+    } else if (tab?.url === newTabPage) {
       await chrome.tabs.update(tab.id, { url });
     } else {
       await chrome.tabs.create(tab ? { url, index: tab.index + 1, windowId: tab.windowId } : { url });
     }
-  } catch (err) {
-    console.warn('[tab-out] Search shortcut could not open Tab Out:', err);
-  }
+  });
 }
 
 chrome.commands.onCommand.addListener((command, tab) => {

@@ -25,9 +25,12 @@
   --status-abandoned: #b35a5a;
   --card-bg: #fffdf9;
   --shadow: rgba(26, 22, 19, 0.06);
+  --page-footer-height: 29px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-padding-bottom: var(--page-footer-height); }
 
 body {
   font-family: 'DM Sans', sans-serif;
@@ -685,13 +688,24 @@ header {
 }
 
 /* ---- Footer ---- */
-footer {
-  margin-top: 48px;
-  padding-top: 20px;
+.page-footer {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 2;
+  min-height: var(--page-footer-height);
+  padding: 6px 16px;
   border-top: 1px solid var(--warm-gray);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.page-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .footer-stats {
@@ -718,11 +732,6 @@ footer {
   letter-spacing: 1.5px;
   color: var(--muted);
   margin-top: 4px;
-}
-
-.last-refresh {
-  font-size: 11px;
-  color: var(--muted);
 }
 
 .refresh-btn {
@@ -755,7 +764,6 @@ header { animation: fadeUp 0.5s ease both; }
 .abandoned-section .missions .mission-card:nth-child(1) { animation: fadeUp 0.4s ease 0.5s both; }
 .abandoned-section .missions .mission-card:nth-child(2) { animation: fadeUp 0.4s ease 0.55s both; }
 .abandoned-section .missions .mission-card:nth-child(3) { animation: fadeUp 0.4s ease 0.6s both; }
-footer { animation: fadeUp 0.5s ease 0.65s both; }
 
 .deferred-list .deferred-item:nth-child(1) { animation-delay: 0.05s; }
 .deferred-list .deferred-item:nth-child(2) { animation-delay: 0.1s; }
@@ -993,7 +1001,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   flex-shrink: 0;
   position: sticky;
   top: 24px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 48px - var(--page-footer-height));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1276,7 +1284,7 @@ footer { animation: fadeUp 0.5s ease 0.65s both; }
   gap: 4px;
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: calc(100vh - var(--page-footer-height));
   overflow-y: auto;
   z-index: 10;
 }

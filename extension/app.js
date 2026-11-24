@@ -2325,6 +2325,9 @@ searchEl('searchRevokeBtn').addEventListener('click', async () => {
 /* ----------------------------------------------------------------
    INITIALIZE
    ---------------------------------------------------------------- */
+// Only the Tab Out document can identify itself inside an overridden New Tab.
+chrome.runtime.sendMessage({ type: 'tab-out-home-ready' })
+  .catch(err => console.warn('[tab-out] Could not register this home tab:', err));
 initShortcuts();
 // The search shortcut (background.js) loads this page with ?search. Open search at once,
 // before the dashboard renders, so the first keystrokes land in the box; then drop the
