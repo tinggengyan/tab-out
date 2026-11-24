@@ -1,0 +1,19 @@
+.github/workflows/publish-tab-out-v3.0.0.yml
+  s_e17b30eba117c4::t_bc0304ec761bb4 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "4f8693e4ef7538896d5ef988000209cc9660b852",
+  "prompts": {},
+  "sessions": {
+    "s_e17b30eba117c4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20bd0-08c4-7b23-ae85-d589eba11124",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
