@@ -1,0 +1,41 @@
+CHANGELOG.md
+  s_e17b30eba117c4::t_e747ebcd56a4b2 3,10-11
+extension/background.js
+  s_e17b30eba117c4::t_cc9fd8c8496db9 2,91,93-94,96-117,119-121,124-134,136,146-147,155-158,160-165,167-180,185-186,188-190,195
+  s_e17b30eba117c4::t_efb08f72a4d054 145
+  s_e17b30eba117c4::t_0bf261a705d003 5-6,118,122-123,142-144,150-154
+  s_e17b30eba117c4::t_a95661e3773711 95,135,137-141,148-149,159,166,181-184,187
+README.md
+  s_e17b30eba117c4::t_2f07277a83cfef 26
+CLAUDE.md
+  s_e17b30eba117c4::t_2f07277a83cfef 43-44,74-75
+extension/style.css
+  s_e17b30eba117c4::t_858a7ffd9ea2fb 28,33,695,1287
+  s_e17b30eba117c4::t_9c4b1ea8fecac2 34,691-694,696,698-708
+  s_e17b30eba117c4::t_51b787b2322cf3 1004
+extension/index.html
+  s_e17b30eba117c4::t_9c4b1ea8fecac2 149-151
+  s_e17b30eba117c4::t_bd9c892f676725 152
+extension/app.js
+  s_e17b30eba117c4::t_a81c3b4ffe6955 2328-2330
+tools/chrome-home-e2e.mjs
+  s_e17b30eba117c4::t_dd6ebfcda41d82 553,577-579
+  s_e17b30eba117c4::t_8e6fe9d4f9913a 560-569,574-575
+  s_e17b30eba117c4::t_4ab675941cefd8 524-525,535-536,538-552,554-559,570-573,576,580-595
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "90aa6e8ca2ff7fb5f8c4037322292cfaa19cd465",
+  "prompts": {},
+  "sessions": {
+    "s_e17b30eba117c4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a20bd0-08c4-7b23-ae85-d589eba11124",
+        "model": "gpt-6.2-sol"
+      },
+      "human_author": "波洛 <tinggeng.ytg@antgroup.com>"
+    }
+  }
+}
